@@ -160,9 +160,6 @@ final currentChapterVerseCountProvider = FutureProvider<int>((ref) async {
 /// Current search query
 final searchQueryProvider = StateProvider<String>((ref) => '');
 
-/// Current font size for Bible verses
-final fontSizeProvider = StateProvider<double>((ref) => 16.0);
-
 /// Search results based on current query
 final searchResultsProvider = FutureProvider<List<SearchResult>>((ref) async {
   final query = ref.watch(searchQueryProvider);

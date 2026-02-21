@@ -27,10 +27,6 @@ final showVerseNumbersProvider = Provider<bool>((ref) {
   return ref.watch(appSettingsProvider).showVerseNumbers;
 });
 
-final showChapterHeadingsProvider = Provider<bool>((ref) {
-  return ref.watch(appSettingsProvider).showChapterHeadings;
-});
-
 final readingModeProvider = Provider<bool>((ref) {
   return ref.watch(appSettingsProvider).readingMode;
 });

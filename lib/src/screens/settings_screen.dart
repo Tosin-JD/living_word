@@ -2,198 +2,202 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/app_settings.dart';
 import '../providers/settings_providers.dart';
-import '../utils/navigation_utils.dart';
+import 'reading_plan_screen.dart';
 
-class SettingsScreen extends ConsumerWidget {
+class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Settings')),
+      body: const SettingsContent(),
+    );
+  }
+}
+
+class SettingsBottomSheet extends StatelessWidget {
+  const SettingsBottomSheet({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final halfHeight = MediaQuery.of(context).size.height * 0.5;
+
+    return SafeArea(
+      top: false,
+      bottom: false,
+      child: SizedBox(
+        height: halfHeight,
+        child: Material(
+          color: Theme.of(context).colorScheme.surface,
+          child: Column(
+            children: [
+              const SizedBox(height: 8),
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.tune),
+                title: const Text('Settings'),
+                trailing: IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ),
+              const Divider(height: 1),
+              const Expanded(child: SettingsContent()),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class SettingsContent extends ConsumerWidget {
+  const SettingsContent({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(appSettingsProvider);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
-      body: FutureBuilder<bool>(
-        future: NavigationUtils.hasSystemNavBar(),
-        builder: (context, snapshot) {
-          final hasNavBar = snapshot.data ?? false;
-          final listView = ListView(
-            children: [
-              // Appearance & Theme Section
-              _buildSectionHeader('Appearance & Theme', Icons.palette),
-              _buildThemeSelector(context, ref, settings),
-              _buildFontSizeSlider(context, ref, settings),
-              _buildFontStyleSelector(context, ref, settings),
-              _buildLineSpacingSlider(context, ref, settings),
-              _buildToggleTile(
-                title: 'Red-letter text (words of Jesus)',
-                subtitle: 'Highlight Jesus\' words in red',
-                value: settings.redLetterText,
-                icon: Icons.format_color_text,
-                onChanged: (value) {
-                  ref.read(appSettingsProvider.notifier).state = settings
-                      .copyWith(redLetterText: value);
-                },
-              ),
+    return ListView(
+      children: [
+        _buildSectionHeader('Live Reader Controls', Icons.play_circle_outline),
+        _buildFontSizeSlider(context, ref, settings),
+        _buildFontStyleSelector(context, ref, settings),
+        _buildLineSpacingSlider(context, ref, settings),
+        _buildToggleTile(
+          title: 'Show verse numbers',
+          subtitle: 'Display verse numbers beside text',
+          value: settings.showVerseNumbers,
+          icon: Icons.numbers,
+          onChanged: (value) {
+            ref.read(appSettingsProvider.notifier).state = settings.copyWith(
+              showVerseNumbers: value,
+            );
+          },
+        ),
+        _buildToggleTile(
+          title: 'Reading mode',
+          subtitle: 'Distraction-free reading',
+          value: settings.readingMode,
+          icon: Icons.auto_stories,
+          onChanged: (value) {
+            ref.read(appSettingsProvider.notifier).state = settings.copyWith(
+              readingMode: value,
+            );
+          },
+        ),
+        _buildToggleTile(
+          title: 'Auto-scroll',
+          subtitle: 'Hands-free reading',
+          value: settings.autoScroll,
+          icon: Icons.play_circle_outline,
+          onChanged: (value) {
+            ref.read(appSettingsProvider.notifier).state = settings.copyWith(
+              autoScroll: value,
+            );
+          },
+        ),
+        _buildAutoScrollSpeedSlider(context, ref, settings),
 
-              const Divider(height: 32),
+        const Divider(height: 32),
 
-              // Reading Experience Section
-              _buildSectionHeader('Reading Experience', Icons.menu_book),
-              _buildToggleTile(
-                title: 'Show verse numbers',
-                subtitle: 'Display verse numbers beside text',
-                value: settings.showVerseNumbers,
-                icon: Icons.numbers,
-                onChanged: (value) {
-                  ref.read(appSettingsProvider.notifier).state = settings
-                      .copyWith(showVerseNumbers: value);
-                },
-              ),
-              _buildToggleTile(
-                title: 'Show chapter headings',
-                subtitle: 'Display chapter titles and headings',
-                value: settings.showChapterHeadings,
-                icon: Icons.title,
-                onChanged: (value) {
-                  ref.read(appSettingsProvider.notifier).state = settings
-                      .copyWith(showChapterHeadings: value);
-                },
-              ),
-              _buildToggleTile(
-                title: 'Cross-references',
-                subtitle: 'Show related verses',
-                value: settings.showCrossReferences,
-                icon: Icons.link,
-                onChanged: (value) {
-                  ref.read(appSettingsProvider.notifier).state = settings
-                      .copyWith(showCrossReferences: value);
-                },
-              ),
-              _buildToggleTile(
-                title: 'Footnotes',
-                subtitle: 'Display explanatory footnotes',
-                value: settings.showFootnotes,
-                icon: Icons.article,
-                onChanged: (value) {
-                  ref.read(appSettingsProvider.notifier).state = settings
-                      .copyWith(showFootnotes: value);
-                },
-              ),
-              _buildToggleTile(
-                title: 'Reading mode',
-                subtitle: 'Distraction-free reading',
-                value: settings.readingMode,
-                icon: Icons.auto_stories,
-                onChanged: (value) {
-                  ref.read(appSettingsProvider.notifier).state = settings
-                      .copyWith(readingMode: value);
-                },
-              ),
-              _buildToggleTile(
-                title: 'Auto-scroll',
-                subtitle: 'Hands-free reading',
-                value: settings.autoScroll,
-                icon: Icons.play_circle_outline,
-                onChanged: (value) {
-                  ref.read(appSettingsProvider.notifier).state = settings
-                      .copyWith(autoScroll: value);
-                },
-              ),
+        _buildSectionHeader('Appearance', Icons.palette),
+        _buildThemeSelector(context, ref, settings),
 
-              const Divider(height: 32),
+        const Divider(height: 32),
 
-              // Notifications Section
-              _buildSectionHeader(
-                'Notifications & Reminders',
-                Icons.notifications,
-              ),
-              _buildNotificationFrequencySelector(context, ref, settings),
-              _buildNotificationTimeSelector(context, ref, settings),
+        _buildSectionHeader('Reading Plan', Icons.menu_book),
+        _buildReadingPlanTile(context),
 
-              const SizedBox(height: 16),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text(
-                  'Notification Types',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                ),
-              ),
-              _buildNotificationTypeToggle(
-                title: 'Daily verse',
-                type: NotificationType.dailyVerse,
-                settings: settings,
-                ref: ref,
-              ),
-              _buildNotificationTypeToggle(
-                title: 'Reading plan reminder',
-                type: NotificationType.readingPlanReminder,
-                settings: settings,
-                ref: ref,
-              ),
-              _buildNotificationTypeToggle(
-                title: 'Prayer reminder',
-                type: NotificationType.prayerReminder,
-                settings: settings,
-                ref: ref,
-              ),
-              _buildNotificationTypeToggle(
-                title: 'Devotional reminder',
-                type: NotificationType.devotionalReminder,
-                settings: settings,
-                ref: ref,
-              ),
+        const Divider(height: 32),
 
-              const SizedBox(height: 16),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text(
-                  'Sound & Vibration',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                ),
-              ),
-              _buildToggleTile(
-                title: 'Sound',
-                subtitle: 'Play notification sound',
-                value: settings.soundEnabled,
-                icon: Icons.volume_up,
-                onChanged: (value) {
-                  ref.read(appSettingsProvider.notifier).state = settings
-                      .copyWith(soundEnabled: value);
-                },
-              ),
-              _buildToggleTile(
-                title: 'Vibration',
-                subtitle: 'Vibrate on notification',
-                value: settings.vibrationEnabled,
-                icon: Icons.vibration,
-                onChanged: (value) {
-                  ref.read(appSettingsProvider.notifier).state = settings
-                      .copyWith(vibrationEnabled: value);
-                },
-              ),
-              _buildToggleTile(
-                title: 'Silent notifications',
-                subtitle: 'Show without sound or vibration',
-                value: settings.silentNotifications,
-                icon: Icons.notifications_off,
-                onChanged: (value) {
-                  ref.read(appSettingsProvider.notifier).state = settings
-                      .copyWith(silentNotifications: value);
-                },
-              ),
+        _buildSectionHeader('Notifications', Icons.notifications),
+        _buildNotificationFrequencySelector(context, ref, settings),
+        _buildNotificationTimeSelector(context, ref, settings),
 
-              const SizedBox(height: 32),
-            ],
-          );
+        const SizedBox(height: 16),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Text(
+            'Notification Types',
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+        ),
+        _buildNotificationTypeToggle(
+          title: 'Daily verse',
+          type: NotificationType.dailyVerse,
+          settings: settings,
+          ref: ref,
+        ),
+        _buildNotificationTypeToggle(
+          title: 'Prayer reminder',
+          type: NotificationType.prayerReminder,
+          settings: settings,
+          ref: ref,
+        ),
+        _buildNotificationTypeToggle(
+          title: 'Devotional reminder',
+          type: NotificationType.devotionalReminder,
+          settings: settings,
+          ref: ref,
+        ),
 
-          return hasNavBar ? SafeArea(child: listView) : listView;
-        },
-      ),
+        const SizedBox(height: 16),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Text(
+            'Sound & Vibration',
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+        ),
+        _buildToggleTile(
+          title: 'Sound',
+          subtitle: 'Play notification sound',
+          value: settings.soundEnabled,
+          icon: Icons.volume_up,
+          onChanged: (value) {
+            ref.read(appSettingsProvider.notifier).state = settings.copyWith(
+              soundEnabled: value,
+            );
+          },
+        ),
+        _buildToggleTile(
+          title: 'Vibration',
+          subtitle: 'Vibrate on notification',
+          value: settings.vibrationEnabled,
+          icon: Icons.vibration,
+          onChanged: (value) {
+            ref.read(appSettingsProvider.notifier).state = settings.copyWith(
+              vibrationEnabled: value,
+            );
+          },
+        ),
+        _buildToggleTile(
+          title: 'Silent notifications',
+          subtitle: 'Show without sound or vibration',
+          value: settings.silentNotifications,
+          icon: Icons.notifications_off,
+          onChanged: (value) {
+            ref.read(appSettingsProvider.notifier).state = settings.copyWith(
+              silentNotifications: value,
+            );
+          },
+        ),
+
+        const SizedBox(height: 32),
+      ],
     );
   }
 
@@ -270,6 +274,22 @@ class SettingsScreen extends ConsumerWidget {
               ],
             ),
           ),
+        );
+      },
+    );
+  }
+
+  Widget _buildReadingPlanTile(BuildContext context) {
+    return ListTile(
+      leading: const Icon(Icons.library_books),
+      title: const Text('Reading Plan'),
+      subtitle: const Text('Open reading plan screen'),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () {
+        final navigator = Navigator.of(context, rootNavigator: true);
+        Navigator.pop(context);
+        navigator.push(
+          MaterialPageRoute(builder: (_) => const ReadingPlanScreen()),
         );
       },
     );
@@ -375,6 +395,32 @@ class SettingsScreen extends ConsumerWidget {
           );
         },
       ),
+    );
+  }
+
+  Widget _buildAutoScrollSpeedSlider(
+    BuildContext context,
+    WidgetRef ref,
+    AppSettings settings,
+  ) {
+    final label = '${settings.autoScrollSpeed.toStringAsFixed(0)} px/s';
+
+    return ListTile(
+      leading: const Icon(Icons.speed),
+      title: const Text('Auto-scroll speed'),
+      subtitle: Slider(
+        value: settings.autoScrollSpeed,
+        min: 4,
+        max: 40,
+        divisions: 36,
+        label: label,
+        onChanged: (value) {
+          ref.read(appSettingsProvider.notifier).state = settings.copyWith(
+            autoScrollSpeed: value,
+          );
+        },
+      ),
+      trailing: Text(label, style: Theme.of(context).textTheme.bodySmall),
     );
   }
 
