@@ -1,55 +1,58 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'bible_selector_dialog.dart';
-import 'translation_selector_dialog.dart';
 
-/// Row containing navigation controls (book selector and translation selector)
-class NavigationControls extends ConsumerWidget {
-  const NavigationControls({super.key});
+/// Floating 3-action navigation bar shown above the bottom edge.
+class NavigationControls extends StatelessWidget {
+  const NavigationControls({
+    super.key,
+    required this.onSelectBook,
+    required this.onSearch,
+    required this.onSelectTranslation,
+  });
+
+  final VoidCallback onSelectBook;
+  final VoidCallback onSearch;
+  final VoidCallback onSelectTranslation;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        children: [
-          // Book/Chapter/Verse selector button
-          Expanded(
-            child: OutlinedButton.icon(
-              onPressed: () {
-                showModalBottomSheet(
-                  context: context,
-                  isScrollControlled: true,
-                  builder: (context) => SizedBox(
-                    height: MediaQuery.of(context).size.height * 0.75,
-                    child: const BibleSelectorDialog(),
-                  ),
-                );
-              },
-              icon: const Icon(Icons.menu_book),
-              label: const Text('Select Book/Chapter'),
-            ),
-          ),
-          const SizedBox(width: 12),
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
 
-          // Translation selector button
-          Expanded(
-            child: OutlinedButton.icon(
-              onPressed: () {
-                showModalBottomSheet(
-                  context: context,
-                  isScrollControlled: true,
-                  builder: (context) => SizedBox(
-                    height: MediaQuery.of(context).size.height * 0.75,
-                    child: const TranslationSelectorDialog(),
-                  ),
-                );
-              },
-              icon: const Icon(Icons.translate),
-              label: const Text('Translation'),
+    return Material(
+      color: colorScheme.surface.withOpacity(0.96),
+      elevation: 8,
+      borderRadius: BorderRadius.circular(28),
+      child: Container(
+        height: 60,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: colorScheme.outlineVariant),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: IconButton(
+                tooltip: 'Select Book',
+                onPressed: onSelectBook,
+                icon: const Icon(Icons.menu_book_rounded),
+              ),
             ),
-          ),
-        ],
+            Expanded(
+              child: IconButton.filled(
+                tooltip: 'Search',
+                onPressed: onSearch,
+                icon: const Icon(Icons.search_rounded),
+              ),
+            ),
+            Expanded(
+              child: IconButton(
+                tooltip: 'Select Translation',
+                onPressed: onSelectTranslation,
+                icon: const Icon(Icons.translate_rounded),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

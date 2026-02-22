@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/app_settings.dart';
 import '../providers/settings_providers.dart';
-import 'reading_plan_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -111,11 +110,6 @@ class SettingsContent extends ConsumerWidget {
 
         _buildSectionHeader('Appearance', Icons.palette),
         _buildThemeSelector(context, ref, settings),
-
-        const Divider(height: 32),
-
-        _buildSectionHeader('Reading Plan', Icons.menu_book),
-        _buildReadingPlanTile(context),
 
         const Divider(height: 32),
 
@@ -279,22 +273,6 @@ class SettingsContent extends ConsumerWidget {
     );
   }
 
-  Widget _buildReadingPlanTile(BuildContext context) {
-    return ListTile(
-      leading: const Icon(Icons.library_books),
-      title: const Text('Reading Plan'),
-      subtitle: const Text('Open reading plan screen'),
-      trailing: const Icon(Icons.chevron_right),
-      onTap: () {
-        final navigator = Navigator.of(context, rootNavigator: true);
-        Navigator.pop(context);
-        navigator.push(
-          MaterialPageRoute(builder: (_) => const ReadingPlanScreen()),
-        );
-      },
-    );
-  }
-
   Widget _buildFontSizeSlider(
     BuildContext context,
     WidgetRef ref,
@@ -326,54 +304,43 @@ class SettingsContent extends ConsumerWidget {
     return ListTile(
       leading: const Icon(Icons.font_download),
       title: const Text('Font style'),
-      subtitle: Text(settings.fontFamily),
-      trailing: const Icon(Icons.chevron_right),
-      onTap: () {
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('Select Font'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildFontOption('System', 'System', settings, ref, context),
-                _buildFontOption('Serif', 'Serif', settings, ref, context),
-                _buildFontOption(
-                  'Sans-serif',
-                  'Sans-serif',
-                  settings,
-                  ref,
-                  context,
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildFontOption(
-    String label,
-    String fontFamily,
-    AppSettings settings,
-    WidgetRef ref,
-    BuildContext context,
-  ) {
-    return RadioListTile<String>(
-      title: Text(label),
-      value: fontFamily,
-      groupValue: settings.fontFamily,
-      onChanged: (value) {
-        if (value != null) {
+      subtitle: DropdownButtonFormField<String>(
+        value: settings.fontFamily,
+        isExpanded: true,
+        decoration: const InputDecoration(
+          isDense: true,
+          border: InputBorder.none,
+        ),
+        items: _fontOptions
+            .map(
+              (option) => DropdownMenuItem<String>(
+                value: option.value,
+                child: Text(option.label),
+              ),
+            )
+            .toList(),
+        onChanged: (value) {
+          if (value == null) return;
           ref.read(appSettingsProvider.notifier).state = settings.copyWith(
             fontFamily: value,
           );
-          Navigator.pop(context);
-        }
-      },
+        },
+      ),
     );
   }
+
+  List<_FontOption> get _fontOptions => const [
+    _FontOption(label: 'System Default', value: 'System'),
+    _FontOption(label: 'Sans Serif', value: 'Sans-serif'),
+    _FontOption(label: 'Serif', value: 'Serif'),
+    _FontOption(label: 'Monospace', value: 'Monospace'),
+    _FontOption(label: 'Roboto', value: 'Roboto'),
+    _FontOption(label: 'Open Sans', value: 'Open Sans'),
+    _FontOption(label: 'Lato', value: 'Lato'),
+    _FontOption(label: 'Montserrat', value: 'Montserrat'),
+    _FontOption(label: 'Merriweather', value: 'Merriweather'),
+    _FontOption(label: 'Georgia', value: 'Georgia'),
+  ];
 
   Widget _buildLineSpacingSlider(
     BuildContext context,
@@ -579,4 +546,11 @@ class SettingsContent extends ConsumerWidget {
         return 'Custom time';
     }
   }
+}
+
+class _FontOption {
+  final String label;
+  final String value;
+
+  const _FontOption({required this.label, required this.value});
 }

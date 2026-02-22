@@ -1,15 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/bible_providers.dart';
+import '../providers/reading_plan_providers.dart';
 import '../providers/settings_providers.dart';
 import '../widgets/verse_list_widget.dart';
 import '../widgets/navigation_controls.dart';
 import '../widgets/bible_search_bar.dart';
+import '../widgets/bible_selector_dialog.dart';
+import '../widgets/translation_selector_dialog.dart';
 import '../utils/navigation_utils.dart';
+import 'reading_insights_screen.dart';
+import 'reading_plan_screen.dart';
 import 'settings_screen.dart';
 
-class BibleHomeScreen extends ConsumerWidget {
+class BibleHomeScreen extends ConsumerStatefulWidget {
   const BibleHomeScreen({super.key});
+
+  @override
+  ConsumerState<BibleHomeScreen> createState() => _BibleHomeScreenState();
+}
+
+class _BibleHomeScreenState extends ConsumerState<BibleHomeScreen> {
+  final GlobalKey<BibleSearchBarState> _searchBarKey =
+      GlobalKey<BibleSearchBarState>();
+  bool _showSearchBar = false;
 
   void _openSettingsSheet(BuildContext context) {
     showModalBottomSheet<void>(
@@ -20,8 +34,48 @@ class BibleHomeScreen extends ConsumerWidget {
     );
   }
 
+  void _openBookSelector(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => SizedBox(
+        height: MediaQuery.of(context).size.height * 0.75,
+        child: const BibleSelectorDialog(),
+      ),
+    );
+  }
+
+  void _openTranslationSelector(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => SizedBox(
+        height: MediaQuery.of(context).size.height * 0.75,
+        child: const TranslationSelectorDialog(),
+      ),
+    );
+  }
+
+  void _openSearchBar() {
+    if (!_showSearchBar) {
+      setState(() => _showSearchBar = true);
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _searchBarKey.currentState?.focusInput();
+    });
+  }
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
+    ref.listen(currentReferenceProvider, (previous, next) {
+      Future.microtask(() {
+        ref
+            .read(readingPlanControllerProvider.notifier)
+            .markChapterRead(next.book, next.chapter);
+      });
+    });
+
     final currentReference = ref.watch(currentReferenceProvider);
     final currentTranslation = ref.watch(currentTranslationProvider);
     final chapterVerses = ref.watch(currentChapterVersesProvider);
@@ -73,6 +127,22 @@ class BibleHomeScreen extends ConsumerWidget {
                   onSelected: (String value) {
                     // Handle the selected option
                     switch (value) {
+                      case 'reading_plan':
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const ReadingPlanScreen(),
+                          ),
+                        );
+                        break;
+                      case 'insights':
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const ReadingInsightsScreen(),
+                          ),
+                        );
+                        break;
                       case 'settings':
                         _openSettingsSheet(context);
                         break;
@@ -106,6 +176,26 @@ class BibleHomeScreen extends ConsumerWidget {
                     }
                   },
                   itemBuilder: (BuildContext context) => [
+                    const PopupMenuItem<String>(
+                      value: 'reading_plan',
+                      child: Row(
+                        children: [
+                          Icon(Icons.menu_book),
+                          SizedBox(width: 12),
+                          Text('Reading Plan'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem<String>(
+                      value: 'insights',
+                      child: Row(
+                        children: [
+                          Icon(Icons.insights),
+                          SizedBox(width: 12),
+                          Text('Insights'),
+                        ],
+                      ),
+                    ),
                     const PopupMenuItem<String>(
                       value: 'settings',
                       child: Row(
@@ -150,143 +240,148 @@ class BibleHomeScreen extends ConsumerWidget {
                   builder: (context) {
                     double baseScale = 1.0;
 
-                    return GestureDetector(
-                      // Horizontal swipe for chapter navigation
-                      onHorizontalDragEnd: (details) {
-                        if (details.primaryVelocity != null) {
-                          if (details.primaryVelocity! < -500) {
-                            // Swiped left - go to next chapter
-                            final bookChapterCount = ref.read(
-                              currentBookChapterCountProvider,
-                            );
-                            final newChapter = currentReference.chapter + 1;
-                            if (newChapter <= bookChapterCount) {
-                              ref
-                                  .read(currentReferenceProvider.notifier)
-                                  .state = currentReference.copyWith(
-                                chapter: newChapter,
-                                verse: 1,
-                              );
-                            }
-                          } else if (details.primaryVelocity! > 500) {
-                            // Swiped right - go to previous chapter
-                            final newChapter = currentReference.chapter - 1;
-                            if (newChapter >= 1) {
-                              ref
-                                  .read(currentReferenceProvider.notifier)
-                                  .state = currentReference.copyWith(
-                                chapter: newChapter,
-                                verse: 1,
-                              );
-                            }
-                          }
-                        }
-                      },
-                      // Pinch to zoom for font size
-                      onScaleStart: (details) {
-                        baseScale = fontSize / 16.0;
-                      },
-                      onScaleUpdate: (details) {
-                        // Calculate new font size based on scale
-                        final newSize = (16.0 * baseScale * details.scale)
-                            .clamp(10.0, 32.0);
-                        ref.read(appSettingsProvider.notifier).state = settings
-                            .copyWith(fontSize: newSize);
-                      },
-                      onScaleEnd: (details) {
-                        // Show toast with final font size
-                        final finalSize = ref
-                            .read(appSettingsProvider)
-                            .fontSize;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'Font Size: ${finalSize.toStringAsFixed(0)}',
-                              textAlign: TextAlign.center,
-                            ),
-                            duration: const Duration(milliseconds: 800),
-                            behavior: SnackBarBehavior.floating,
-                            margin: const EdgeInsets.only(
-                              top: 80,
-                              left: 20,
-                              right: 20,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            backgroundColor: Theme.of(
-                              context,
-                            ).colorScheme.primaryContainer,
+                    return Column(
+                      children: [
+                        if (!settings.readingMode)
+                          BibleSearchBar(
+                            key: _searchBarKey,
+                            isVisible: _showSearchBar,
+                            onClose: () {
+                              setState(() => _showSearchBar = false);
+                            },
                           ),
-                        );
-                      },
-                      child: chapterVerses.when(
-                        data: (verses) {
-                          if (verses.isEmpty) {
-                            return const Center(child: Text('No verses found'));
-                          }
-                          return VerseListWidget(
-                            verses: verses,
-                            fontSize: fontSize,
-                            lineSpacing: settings.lineSpacing,
-                            fontFamily: settings.fontFamily,
-                            showVerseNumbers: settings.showVerseNumbers,
-                            autoScroll: settings.autoScroll,
-                            autoScrollSpeed: settings.autoScrollSpeed,
-                          );
-                        },
-                        loading: () =>
-                            const Center(child: CircularProgressIndicator()),
-                        error: (error, stack) => Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(
-                                  Icons.error_outline,
-                                  size: 48,
-                                  color: Colors.red,
+                        Expanded(
+                          child: GestureDetector(
+                            // Horizontal swipe for chapter navigation
+                            onHorizontalDragEnd: (details) {
+                              if (details.primaryVelocity != null) {
+                                if (details.primaryVelocity! < -500) {
+                                  // Swiped left - go to next chapter
+                                  final bookChapterCount = ref.read(
+                                    currentBookChapterCountProvider,
+                                  );
+                                  final newChapter =
+                                      currentReference.chapter + 1;
+                                  if (newChapter <= bookChapterCount) {
+                                    ref
+                                        .read(currentReferenceProvider.notifier)
+                                        .state = currentReference.copyWith(
+                                      chapter: newChapter,
+                                      verse: 1,
+                                    );
+                                  }
+                                } else if (details.primaryVelocity! > 500) {
+                                  // Swiped right - go to previous chapter
+                                  final newChapter =
+                                      currentReference.chapter - 1;
+                                  if (newChapter >= 1) {
+                                    ref
+                                        .read(currentReferenceProvider.notifier)
+                                        .state = currentReference.copyWith(
+                                      chapter: newChapter,
+                                      verse: 1,
+                                    );
+                                  }
+                                }
+                              }
+                            },
+                            // Pinch to zoom for font size
+                            onScaleStart: (details) {
+                              baseScale = fontSize / 16.0;
+                            },
+                            onScaleUpdate: (details) {
+                              // Calculate new font size based on scale
+                              final newSize = (16.0 * baseScale * details.scale)
+                                  .clamp(10.0, 32.0);
+                              ref.read(appSettingsProvider.notifier).state =
+                                  settings.copyWith(fontSize: newSize);
+                            },
+                            onScaleEnd: (details) {
+                              // Show toast with final font size
+                              final finalSize = ref
+                                  .read(appSettingsProvider)
+                                  .fontSize;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Font Size: ${finalSize.toStringAsFixed(0)}',
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  duration: const Duration(milliseconds: 800),
+                                  behavior: SnackBarBehavior.floating,
+                                  margin: const EdgeInsets.only(
+                                    top: 80,
+                                    left: 20,
+                                    right: 20,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  backgroundColor: Theme.of(
+                                    context,
+                                  ).colorScheme.primaryContainer,
                                 ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'Error loading verses',
-                                  style: Theme.of(context).textTheme.titleLarge,
+                              );
+                            },
+                            child: chapterVerses.when(
+                              data: (verses) {
+                                if (verses.isEmpty) {
+                                  return const Center(
+                                    child: Text('No verses found'),
+                                  );
+                                }
+
+                                return VerseListWidget(
+                                  verses: verses,
+                                  fontSize: fontSize,
+                                  lineSpacing: settings.lineSpacing,
+                                  fontFamily: settings.fontFamily,
+                                  showVerseNumbers: settings.showVerseNumbers,
+                                  autoScroll: settings.autoScroll,
+                                  autoScrollSpeed: settings.autoScrollSpeed,
+                                );
+                              },
+                              loading: () => const Center(
+                                child: CircularProgressIndicator(),
+                              ),
+                              error: (error, stack) => Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Icon(
+                                        Icons.error_outline,
+                                        size: 48,
+                                        color: Colors.red,
+                                      ),
+                                      const SizedBox(height: 16),
+                                      Text(
+                                        'Error loading verses',
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.titleLarge,
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        error.toString(),
+                                        textAlign: TextAlign.center,
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.bodyMedium,
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  error.toString(),
-                                  textAlign: TextAlign.center,
-                                  style: Theme.of(context).textTheme.bodyMedium,
-                                ),
-                              ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
+                      ],
                     );
                   },
                 ),
               ),
-              if (!settings.readingMode) ...[
-                const Divider(height: 1),
-
-                // Navigation controls and search bar with conditional safe area
-                FutureBuilder<bool>(
-                  future: NavigationUtils.hasSystemNavBar(),
-                  builder: (context, snapshot) {
-                    final hasNavBar = snapshot.data ?? false;
-                    final child = Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: const [NavigationControls(), BibleSearchBar()],
-                    );
-
-                    return hasNavBar
-                        ? SafeArea(top: false, child: child)
-                        : child;
-                  },
-                ),
-              ],
             ],
           ),
 
@@ -303,7 +398,7 @@ class BibleHomeScreen extends ConsumerWidget {
                       // Previous button (left)
                       Positioned(
                         left: 16,
-                        bottom: 160,
+                        bottom: 96,
                         child: FloatingActionButton(
                           heroTag: 'previous',
                           backgroundColor: Theme.of(
@@ -332,7 +427,7 @@ class BibleHomeScreen extends ConsumerWidget {
                       // Next button (right)
                       Positioned(
                         right: 16,
-                        bottom: 160,
+                        bottom: 96,
                         child: FloatingActionButton(
                           heroTag: 'next',
                           backgroundColor: Theme.of(
@@ -367,6 +462,29 @@ class BibleHomeScreen extends ConsumerWidget {
                 return hasNavBar
                     ? SafeArea(top: false, child: buttonsStack)
                     : buttonsStack;
+              },
+            ),
+          if (!settings.readingMode)
+            FutureBuilder<bool>(
+              future: NavigationUtils.hasSystemNavBar(),
+              builder: (context, snapshot) {
+                final hasNavBar = snapshot.data ?? false;
+                final bottomPadding = hasNavBar ? 16.0 : 8.0;
+                final floatingBar = Positioned(
+                  left: 24,
+                  right: 24,
+                  bottom: bottomPadding,
+                  child: NavigationControls(
+                    onSelectBook: () => _openBookSelector(context),
+                    onSearch: _openSearchBar,
+                    onSelectTranslation: () =>
+                        _openTranslationSelector(context),
+                  ),
+                );
+
+                return hasNavBar
+                    ? SafeArea(top: false, child: floatingBar)
+                    : floatingBar;
               },
             ),
           if (settings.readingMode)

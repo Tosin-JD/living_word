@@ -1,29 +1,35 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/bible_providers.dart';
 
-/// Search bar that rises above keyboard when focused
+/// Search bar rendered near the top and controlled by parent visibility.
 class BibleSearchBar extends ConsumerStatefulWidget {
-  const BibleSearchBar({super.key});
+  const BibleSearchBar({super.key, required this.isVisible, this.onClose});
+
+  final bool isVisible;
+  final VoidCallback? onClose;
 
   @override
-  ConsumerState<BibleSearchBar> createState() => _BibleSearchBarState();
+  ConsumerState<BibleSearchBar> createState() => BibleSearchBarState();
 }
 
-class _BibleSearchBarState extends ConsumerState<BibleSearchBar> {
+class BibleSearchBarState extends ConsumerState<BibleSearchBar> {
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
-
-  @override
-  void initState() {
-    super.initState();
-  }
 
   @override
   void dispose() {
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
+  }
+
+  void focusInput() {
+    if (!mounted) return;
+
+    _focusNode.requestFocus();
+    SystemChannels.textInput.invokeMethod<void>('TextInput.show');
   }
 
   void _performSearch() {
@@ -55,56 +61,69 @@ class _BibleSearchBarState extends ConsumerState<BibleSearchBar> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: TextField(
-        controller: _controller,
-        focusNode: _focusNode,
-        decoration: InputDecoration(
-          hintText: 'Search for verses, words, or references...',
-          prefixIcon: const Icon(Icons.search),
-          suffixIcon: _controller.text.isNotEmpty
-              ? IconButton(
-                  icon: const Icon(Icons.clear),
+    return AnimatedCrossFade(
+      duration: const Duration(milliseconds: 220),
+      crossFadeState: widget.isVisible
+          ? CrossFadeState.showFirst
+          : CrossFadeState.showSecond,
+      firstChild: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+        child: TextField(
+          controller: _controller,
+          focusNode: _focusNode,
+          autofocus: false,
+          decoration: InputDecoration(
+            hintText: 'Search for verses, words, or references...',
+            prefixIcon: const Icon(Icons.search),
+            suffixIcon: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_controller.text.isNotEmpty)
+                  IconButton(
+                    icon: const Icon(Icons.clear),
+                    onPressed: () {
+                      _controller.clear();
+                      ref.read(searchQueryProvider.notifier).state = '';
+                      setState(() {});
+                    },
+                  ),
+                IconButton(
+                  icon: const Icon(Icons.close),
                   onPressed: () {
-                    _controller.clear();
-                    ref.read(searchQueryProvider.notifier).state = '';
-                    setState(() {});
+                    _focusNode.unfocus();
+                    widget.onClose?.call();
                   },
-                )
-              : null,
-          // Fully rounded pill shape
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(
-              30,
-            ), // Increase for more rounding (e.g., 32 or 40)
-            borderSide: BorderSide
-                .none, // Optional: removes the outline stroke if you only want filled background
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(30),
-            borderSide: BorderSide.none,
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(30),
-            borderSide: BorderSide(
-              color: Theme.of(
-                context,
-              ).colorScheme.primary, // Optional: subtle focus outline
-              width: 2,
+                ),
+              ],
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(30),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(30),
+              borderSide: BorderSide.none,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(30),
+              borderSide: BorderSide(
+                color: Theme.of(context).colorScheme.primary,
+                width: 2,
+              ),
+            ),
+            filled: true,
+            fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+            contentPadding: const EdgeInsets.symmetric(
+              vertical: 16,
+              horizontal: 16,
             ),
           ),
-          filled: true,
-          fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-          contentPadding: const EdgeInsets.symmetric(
-            vertical: 16,
-            horizontal: 16,
-          ), // Helps with height and icon alignment
+          onChanged: (_) => setState(() {}),
+          onSubmitted: (_) => _performSearch(),
+          textInputAction: TextInputAction.search,
         ),
-        onChanged: (value) => setState(() {}),
-        onSubmitted: (value) => _performSearch(),
-        textInputAction: TextInputAction.search,
       ),
+      secondChild: const SizedBox.shrink(),
     );
   }
 }
@@ -128,7 +147,6 @@ class _SearchResultsSheet extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Header
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -148,8 +166,6 @@ class _SearchResultsSheet extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 16),
-
-          // Results
           Expanded(
             child: searchResults.when(
               data: (results) {
@@ -180,7 +196,6 @@ class _SearchResultsSheet extends ConsumerWidget {
                           ),
                         ),
                         onTap: () {
-                          // Navigate to the verse
                           ref.read(currentReferenceProvider.notifier).state =
                               verse.reference;
                           Navigator.pop(context);
@@ -191,7 +206,7 @@ class _SearchResultsSheet extends ConsumerWidget {
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, stack) => Center(child: Text('Error: $error')),
+              error: (error, _) => Center(child: Text('Error: $error')),
             ),
           ),
         ],

@@ -35,10 +35,43 @@ class _VerseListWidgetState extends ConsumerState<VerseListWidget> {
 
   String? _resolveFontFamily() {
     switch (widget.fontFamily) {
-      case 'Serif':
-        return 'serif';
+      case 'Sans Serif':
       case 'Sans-serif':
         return 'sans-serif';
+      case 'Serif':
+        return 'serif';
+      case 'Monospace':
+        return 'monospace';
+      case 'Roboto':
+      case 'Open Sans':
+      case 'Lato':
+      case 'Montserrat':
+      case 'Merriweather':
+      case 'Georgia':
+        return widget.fontFamily;
+      default:
+        return null;
+    }
+  }
+
+  List<String>? _resolveFontFallback() {
+    switch (widget.fontFamily) {
+      case 'Sans Serif':
+      case 'Sans-serif':
+        return const ['Roboto', 'Arial', 'Helvetica', 'sans-serif'];
+      case 'Serif':
+        return const ['Georgia', 'Times New Roman', 'serif'];
+      case 'Monospace':
+        return const ['Courier New', 'monospace'];
+      case 'Roboto':
+        return const ['Arial', 'Helvetica', 'sans-serif'];
+      case 'Open Sans':
+      case 'Lato':
+      case 'Montserrat':
+        return const ['Roboto', 'Arial', 'sans-serif'];
+      case 'Merriweather':
+      case 'Georgia':
+        return const ['Times New Roman', 'serif'];
       default:
         return null;
     }
@@ -104,6 +137,7 @@ class _VerseListWidgetState extends ConsumerState<VerseListWidget> {
   @override
   Widget build(BuildContext context) {
     final resolvedFontFamily = _resolveFontFamily();
+    final resolvedFontFallback = _resolveFontFallback();
 
     return ListView.builder(
       controller: _scrollController,
@@ -126,6 +160,7 @@ class _VerseListWidgetState extends ConsumerState<VerseListWidget> {
                     style: TextStyle(
                       fontSize: 14,
                       fontFamily: resolvedFontFamily,
+                      fontFamilyFallback: resolvedFontFallback,
                       fontWeight: FontWeight.bold,
                       color: Theme.of(context).colorScheme.primary,
                     ),
@@ -140,6 +175,7 @@ class _VerseListWidgetState extends ConsumerState<VerseListWidget> {
                     fontSize: widget.fontSize,
                     height: widget.lineSpacing,
                     fontFamily: resolvedFontFamily,
+                    fontFamilyFallback: resolvedFontFallback,
                   ),
                 ),
               ),
