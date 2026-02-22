@@ -41,6 +41,10 @@ class NavigationControls extends StatelessWidget {
               child: IconButton.filled(
                 tooltip: 'Search',
                 onPressed: onSearch,
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.grey.shade600,
+                  foregroundColor: Colors.white,
+                ),
                 icon: const Icon(Icons.search_rounded),
               ),
             ),

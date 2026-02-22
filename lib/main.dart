@@ -17,26 +17,14 @@ class LivingWordApp extends ConsumerWidget {
     ref.watch(settingsBootstrapProvider);
     ref.watch(notificationBootstrapProvider);
     ref.watch(readingPlanNotificationSyncProvider);
-    final themeMode = ref.watch(themeModeProvider);
+    final appTheme = ref.watch(appThemeDataProvider);
 
     return MaterialApp(
       title: 'Living Word',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.deepPurple,
-          brightness: Brightness.light,
-        ),
-        useMaterial3: true,
-      ),
-      darkTheme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.deepPurple,
-          brightness: Brightness.dark,
-        ),
-        useMaterial3: true,
-      ),
-      themeMode: themeMode,
+      theme: appTheme,
+      darkTheme: appTheme,
+      themeMode: ThemeMode.light,
       home: const BibleHomeScreen(),
     );
   }

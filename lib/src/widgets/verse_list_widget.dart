@@ -1,6 +1,10 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
+
 import '../models/verse.dart';
 
 class VerseListWidget extends ConsumerStatefulWidget {
@@ -42,6 +46,9 @@ class _VerseListWidgetState extends ConsumerState<VerseListWidget> {
   Timer? _autoScrollTimer;
   Timer? _scrollUpdateDebounce;
   final Map<int, GlobalKey> _verseItemKeys = <int, GlobalKey>{};
+  final Set<int> _selectedVerseNumbers = <int>{};
+
+  bool get _isSelectionMode => _selectedVerseNumbers.isNotEmpty;
 
   String? _resolveFontFamily() {
     switch (widget.fontFamily) {
@@ -128,6 +135,7 @@ class _VerseListWidgetState extends ConsumerState<VerseListWidget> {
 
     final chapterChanged = oldBook != newBook || oldChapter != newChapter;
     if (chapterChanged) {
+      _selectedVerseNumbers.clear();
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || !_scrollController.hasClients) return;
         final target = widget.initialScrollOffset.clamp(
@@ -208,60 +216,241 @@ class _VerseListWidgetState extends ConsumerState<VerseListWidget> {
     _autoScrollTimer = null;
   }
 
+  void _toggleVerseSelection(Verse verse) {
+    if (_selectedVerseNumbers.contains(verse.reference.verse)) {
+      _selectedVerseNumbers.remove(verse.reference.verse);
+    } else {
+      _selectedVerseNumbers.add(verse.reference.verse);
+    }
+    if (_selectedVerseNumbers.isNotEmpty) {
+      _stopAutoScroll();
+    }
+    setState(() {});
+  }
+
+  void _clearSelection() {
+    if (_selectedVerseNumbers.isEmpty) return;
+    setState(() => _selectedVerseNumbers.clear());
+  }
+
+  List<Verse> _selectedVerses() {
+    final selected = widget.verses
+        .where((v) => _selectedVerseNumbers.contains(v.reference.verse))
+        .toList();
+    selected.sort((a, b) => a.reference.verse.compareTo(b.reference.verse));
+    return selected;
+  }
+
+  String _buildSelectionText(List<Verse> verses) {
+    if (verses.isEmpty) return '';
+
+    final groups = <List<Verse>>[];
+    var currentGroup = <Verse>[verses.first];
+
+    for (var i = 1; i < verses.length; i++) {
+      final previous = verses[i - 1];
+      final current = verses[i];
+
+      final sameBook = previous.reference.book == current.reference.book;
+      final sameChapter =
+          previous.reference.chapter == current.reference.chapter;
+      final contiguous =
+          previous.reference.verse + 1 == current.reference.verse;
+
+      if (sameBook && sameChapter && contiguous) {
+        currentGroup.add(current);
+      } else {
+        groups.add(currentGroup);
+        currentGroup = [current];
+      }
+    }
+    groups.add(currentGroup);
+
+    return groups.map(_formatVerseGroup).join('\n\n');
+  }
+
+  String _formatVerseGroup(List<Verse> group) {
+    final first = group.first;
+    final last = group.last;
+    final joinedText = group.map((verse) => verse.text.trim()).join(' ');
+
+    final reference = first.reference.verse == last.reference.verse
+        ? '${first.reference.book} ${first.reference.chapter}:${first.reference.verse}'
+        : '${first.reference.book} ${first.reference.chapter}:${first.reference.verse}-${last.reference.verse}';
+
+    return '"$joinedText" — $reference';
+  }
+
+  Future<void> _copySelection() async {
+    final selected = _selectedVerses();
+    if (selected.isEmpty) return;
+
+    await Clipboard.setData(ClipboardData(text: _buildSelectionText(selected)));
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          selected.length == 1
+              ? 'Verse copied'
+              : '${selected.length} verses copied',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _shareSelection() async {
+    final selected = _selectedVerses();
+    if (selected.isEmpty) return;
+
+    final text = _buildSelectionText(selected);
+
+    try {
+      await Share.share(text);
+    } on MissingPluginException {
+      await Clipboard.setData(ClipboardData(text: text));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Share is unavailable right now. Text copied instead. '
+            'Do a full restart of the app.',
+          ),
+        ),
+      );
+    } on PlatformException {
+      await Clipboard.setData(ClipboardData(text: text));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Share failed on this device. Text copied instead.'),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final resolvedFontFamily = _resolveFontFamily();
     final resolvedFontFallback = _resolveFontFallback();
 
-    return ListView.builder(
-      controller: _scrollController,
-      padding: const EdgeInsets.all(16),
-      itemCount: widget.verses.length,
-      itemBuilder: (context, index) {
-        final verse = widget.verses[index];
-        final verseKey = _verseItemKeys.putIfAbsent(
-          verse.reference.verse,
-          () => GlobalKey(),
-        );
-        return Padding(
-          key: verseKey,
-          padding: const EdgeInsets.only(bottom: 12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Verse number
-              if (widget.showVerseNumbers)
-                Container(
-                  width: 40,
-                  margin: const EdgeInsets.only(right: 8),
-                  child: Text(
-                    '${verse.reference.verse}',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontFamily: resolvedFontFamily,
-                      fontFamilyFallback: resolvedFontFallback,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.primary,
+    return Stack(
+      children: [
+        ListView.builder(
+          controller: _scrollController,
+          padding: EdgeInsets.fromLTRB(10, 12, 10, _isSelectionMode ? 188 : 12),
+          itemCount: widget.verses.length,
+          itemBuilder: (context, index) {
+            final verse = widget.verses[index];
+            final verseKey = _verseItemKeys.putIfAbsent(
+              verse.reference.verse,
+              () => GlobalKey(),
+            );
+            final isSelected = _selectedVerseNumbers.contains(
+              verse.reference.verse,
+            );
+
+            return Padding(
+              key: verseKey,
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Material(
+                color: isSelected
+                    ? Theme.of(context).colorScheme.primaryContainer
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(10),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(10),
+                  onLongPress: () => _toggleVerseSelection(verse),
+                  onTap: _isSelectionMode
+                      ? () => _toggleVerseSelection(verse)
+                      : null,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (widget.showVerseNumbers)
+                          SizedBox(
+                            width: 40,
+                            child: Text(
+                              '${verse.reference.verse}',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontFamily: resolvedFontFamily,
+                                fontFamilyFallback: resolvedFontFallback,
+                                fontWeight: FontWeight.bold,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                              textAlign: TextAlign.right,
+                            ),
+                          ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            verse.text,
+                            style: TextStyle(
+                              fontSize: widget.fontSize,
+                              height: widget.lineSpacing,
+                              fontFamily: resolvedFontFamily,
+                              fontFamilyFallback: resolvedFontFallback,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    textAlign: TextAlign.right,
-                  ),
-                ),
-              // Verse text
-              Expanded(
-                child: SelectableText(
-                  verse.text,
-                  style: TextStyle(
-                    fontSize: widget.fontSize,
-                    height: widget.lineSpacing,
-                    fontFamily: resolvedFontFamily,
-                    fontFamilyFallback: resolvedFontFallback,
                   ),
                 ),
               ),
-            ],
+            );
+          },
+        ),
+        if (_isSelectionMode)
+          Positioned(
+            left: 12,
+            right: 12,
+            bottom: 124,
+            child: SafeArea(
+              top: false,
+              child: Material(
+                elevation: 5,
+                borderRadius: BorderRadius.circular(14),
+                color: Theme.of(context).colorScheme.surface,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 6,
+                  ),
+                  child: Row(
+                    children: [
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          '${_selectedVerseNumbers.length} selected',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Copy',
+                        onPressed: _copySelection,
+                        icon: const Icon(Icons.copy),
+                      ),
+                      IconButton(
+                        tooltip: 'Share',
+                        onPressed: _shareSelection,
+                        icon: const Icon(Icons.share),
+                      ),
+                      IconButton(
+                        tooltip: 'Close selection',
+                        onPressed: _clearSelection,
+                        icon: const Icon(Icons.close),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ),
-        );
-      },
+      ],
     );
   }
 }

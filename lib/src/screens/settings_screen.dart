@@ -193,8 +193,44 @@ class SettingsContent extends ConsumerWidget {
                   },
                 ),
                 RadioListTile<AppThemeMode>(
-                  title: const Text('System default'),
-                  value: AppThemeMode.system,
+                  title: const Text('Sepia'),
+                  value: AppThemeMode.sepia,
+                  groupValue: settings.themeMode,
+                  onChanged: (value) {
+                    if (value != null) {
+                      ref.read(appSettingsProvider.notifier).state = settings
+                          .copyWith(themeMode: value);
+                      Navigator.pop(context);
+                    }
+                  },
+                ),
+                RadioListTile<AppThemeMode>(
+                  title: const Text('Rose'),
+                  value: AppThemeMode.rose,
+                  groupValue: settings.themeMode,
+                  onChanged: (value) {
+                    if (value != null) {
+                      ref.read(appSettingsProvider.notifier).state = settings
+                          .copyWith(themeMode: value);
+                      Navigator.pop(context);
+                    }
+                  },
+                ),
+                RadioListTile<AppThemeMode>(
+                  title: const Text('Paper'),
+                  value: AppThemeMode.paper,
+                  groupValue: settings.themeMode,
+                  onChanged: (value) {
+                    if (value != null) {
+                      ref.read(appSettingsProvider.notifier).state = settings
+                          .copyWith(themeMode: value);
+                      Navigator.pop(context);
+                    }
+                  },
+                ),
+                RadioListTile<AppThemeMode>(
+                  title: const Text('AMOLED'),
+                  value: AppThemeMode.amoled,
                   groupValue: settings.themeMode,
                   onChanged: (value) {
                     if (value != null) {
@@ -352,8 +388,14 @@ class SettingsContent extends ConsumerWidget {
         return 'Light';
       case AppThemeMode.dark:
         return 'Dark';
-      case AppThemeMode.system:
-        return 'System default';
+      case AppThemeMode.sepia:
+        return 'Sepia';
+      case AppThemeMode.rose:
+        return 'Rose';
+      case AppThemeMode.paper:
+        return 'Paper';
+      case AppThemeMode.amoled:
+        return 'AMOLED';
     }
   }
 }

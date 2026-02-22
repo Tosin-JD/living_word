@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-enum AppThemeMode { light, dark, system }
+enum AppThemeMode { light, dark, sepia, rose, paper, amoled }
 
 enum NotificationFrequency { daily, weekly, custom, off }
 
@@ -67,7 +67,7 @@ class AppSettings {
   final List<String> curatedMemoryVerseReferences;
 
   const AppSettings({
-    this.themeMode = AppThemeMode.system,
+    this.themeMode = AppThemeMode.light,
     this.fontSize = 16.0,
     this.fontFamily = 'System',
     this.lineSpacing = 1.6,

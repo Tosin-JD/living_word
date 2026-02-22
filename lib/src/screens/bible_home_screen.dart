@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../models/app_settings.dart';
 import '../providers/bible_providers.dart';
 import '../providers/reading_plan_providers.dart';
 import '../providers/settings_providers.dart';
@@ -26,11 +29,19 @@ class _BibleHomeScreenState extends ConsumerState<BibleHomeScreen> {
       GlobalKey<BibleSearchBarState>();
   bool _showSearchBar = false;
   bool _hydratedReadingPosition = false;
+  bool _showModeToggleButton = true;
+  Timer? _modeButtonHideTimer;
 
   @override
   void initState() {
     super.initState();
     Future.microtask(_hydrateReadingPosition);
+  }
+
+  @override
+  void dispose() {
+    _modeButtonHideTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _hydrateReadingPosition() async {
@@ -88,8 +99,42 @@ class _BibleHomeScreenState extends ConsumerState<BibleHomeScreen> {
     });
   }
 
+  void _handleModeButtonVisibility({required bool readingMode}) {
+    _modeButtonHideTimer?.cancel();
+
+    if (!readingMode) {
+      if (!_showModeToggleButton) {
+        setState(() => _showModeToggleButton = true);
+      }
+      return;
+    }
+
+    if (!_showModeToggleButton) {
+      setState(() => _showModeToggleButton = true);
+    }
+
+    _modeButtonHideTimer = Timer(const Duration(seconds: 3), () {
+      if (!mounted) return;
+      setState(() => _showModeToggleButton = false);
+    });
+  }
+
+  void _toggleReadingMode(AppSettings settings) {
+    final next = !settings.readingMode;
+    ref.read(appSettingsProvider.notifier).state = settings.copyWith(
+      readingMode: next,
+    );
+    _handleModeButtonVisibility(readingMode: next);
+  }
+
   @override
   Widget build(BuildContext context) {
+    ref.listen(appSettingsProvider, (previous, next) {
+      if (previous?.readingMode != next.readingMode) {
+        _handleModeButtonVisibility(readingMode: next.readingMode);
+      }
+    });
+
     ref.listen(currentReferenceProvider, (previous, next) {
       Future.microtask(() {
         ref
@@ -283,271 +328,210 @@ class _BibleHomeScreenState extends ConsumerState<BibleHomeScreen> {
             ),
       body: Stack(
         children: [
-          Column(
-            children: [
-              // Bible verses with swipe navigation
-              Expanded(
-                child: Builder(
-                  builder: (context) {
-                    double baseScale = 1.0;
+          SafeArea(
+            top: false,
+            bottom: true,
+            child: Column(
+              children: [
+                // Bible verses with swipe navigation
+                Expanded(
+                  child: Builder(
+                    builder: (context) {
+                      double baseScale = 1.0;
 
-                    return Column(
-                      children: [
-                        if (!settings.readingMode)
-                          BibleSearchBar(
-                            key: _searchBarKey,
-                            isVisible: _showSearchBar,
-                            onClose: () {
-                              setState(() => _showSearchBar = false);
-                            },
-                          ),
-                        Expanded(
-                          child: GestureDetector(
-                            // Horizontal swipe for chapter navigation
-                            onHorizontalDragEnd: (details) {
-                              if (details.primaryVelocity != null) {
-                                if (details.primaryVelocity! < -500) {
-                                  // Swiped left - go to next chapter
-                                  final bookChapterCount = ref.read(
-                                    currentBookChapterCountProvider,
-                                  );
-                                  final newChapter =
-                                      currentReference.chapter + 1;
-                                  if (newChapter <= bookChapterCount) {
-                                    ref
-                                        .read(currentReferenceProvider.notifier)
-                                        .state = currentReference.copyWith(
-                                      chapter: newChapter,
-                                      verse: 1,
+                      return Column(
+                        children: [
+                          if (!settings.readingMode)
+                            BibleSearchBar(
+                              key: _searchBarKey,
+                              isVisible: _showSearchBar,
+                              onClose: () {
+                                setState(() => _showSearchBar = false);
+                              },
+                            ),
+                          Expanded(
+                            child: GestureDetector(
+                              // Horizontal swipe for chapter navigation
+                              onHorizontalDragEnd: (details) {
+                                if (details.primaryVelocity != null) {
+                                  if (details.primaryVelocity! < -500) {
+                                    // Swiped left - go to next chapter
+                                    final bookChapterCount = ref.read(
+                                      currentBookChapterCountProvider,
                                     );
-                                  }
-                                } else if (details.primaryVelocity! > 500) {
-                                  // Swiped right - go to previous chapter
-                                  final newChapter =
-                                      currentReference.chapter - 1;
-                                  if (newChapter >= 1) {
-                                    ref
-                                        .read(currentReferenceProvider.notifier)
-                                        .state = currentReference.copyWith(
-                                      chapter: newChapter,
-                                      verse: 1,
-                                    );
+                                    final newChapter =
+                                        currentReference.chapter + 1;
+                                    if (newChapter <= bookChapterCount) {
+                                      ref
+                                          .read(
+                                            currentReferenceProvider.notifier,
+                                          )
+                                          .state = currentReference.copyWith(
+                                        chapter: newChapter,
+                                        verse: 1,
+                                      );
+                                    }
+                                  } else if (details.primaryVelocity! > 500) {
+                                    // Swiped right - go to previous chapter
+                                    final newChapter =
+                                        currentReference.chapter - 1;
+                                    if (newChapter >= 1) {
+                                      ref
+                                          .read(
+                                            currentReferenceProvider.notifier,
+                                          )
+                                          .state = currentReference.copyWith(
+                                        chapter: newChapter,
+                                        verse: 1,
+                                      );
+                                    }
                                   }
                                 }
-                              }
-                            },
-                            // Pinch to zoom for font size
-                            onScaleStart: (details) {
-                              baseScale = fontSize / 16.0;
-                            },
-                            onScaleUpdate: (details) {
-                              // Calculate new font size based on scale
-                              final newSize = (16.0 * baseScale * details.scale)
-                                  .clamp(10.0, 32.0);
-                              ref.read(appSettingsProvider.notifier).state =
-                                  settings.copyWith(fontSize: newSize);
-                            },
-                            onScaleEnd: (details) {
-                              // Show toast with final font size
-                              final finalSize = ref
-                                  .read(appSettingsProvider)
-                                  .fontSize;
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    'Font Size: ${finalSize.toStringAsFixed(0)}',
-                                    textAlign: TextAlign.center,
-                                  ),
-                                  duration: const Duration(milliseconds: 800),
-                                  behavior: SnackBarBehavior.floating,
-                                  margin: const EdgeInsets.only(
-                                    top: 80,
-                                    left: 20,
-                                    right: 20,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  backgroundColor: Theme.of(
-                                    context,
-                                  ).colorScheme.primaryContainer,
-                                ),
-                              );
-                            },
-                            child: chapterVerses.when(
-                              data: (verses) {
-                                if (verses.isEmpty) {
-                                  return const Center(
-                                    child: Text('No verses found'),
-                                  );
-                                }
-
-                                return VerseListWidget(
-                                  verses: verses,
-                                  fontSize: fontSize,
-                                  lineSpacing: settings.lineSpacing,
-                                  fontFamily: settings.fontFamily,
-                                  showVerseNumbers: settings.showVerseNumbers,
-                                  autoScroll: settings.autoScroll,
-                                  autoScrollSpeed: settings.autoScrollSpeed,
-                                  initialScrollOffset: chapterScrollOffset,
-                                  targetVerseNumber: targetVerse,
-                                  onTargetVerseHandled: () {
-                                    ref
-                                            .read(
-                                              targetVerseInChapterProvider
-                                                  .notifier,
-                                            )
-                                            .state =
-                                        null;
-                                  },
-                                  onScrollOffsetChanged: (offset) {
-                                    ref
-                                            .read(
-                                              currentChapterScrollOffsetProvider
-                                                  .notifier,
-                                            )
-                                            .state =
-                                        offset;
-
-                                    if (!_hydratedReadingPosition) return;
-                                    final repository = ref.read(
-                                      readingPositionRepositoryProvider,
+                              },
+                              // Pinch to zoom for font size
+                              onScaleStart: (details) {
+                                baseScale = fontSize / 16.0;
+                              },
+                              onScaleUpdate: (details) {
+                                // Calculate new font size based on scale
+                                final newSize =
+                                    (16.0 * baseScale * details.scale).clamp(
+                                      10.0,
+                                      32.0,
                                     );
-                                    final current = ref.read(
-                                      currentReferenceProvider,
-                                    );
-                                    repository.saveChapterOffset(
-                                      current.book,
-                                      current.chapter,
-                                      offset,
-                                    );
-                                  },
+                                ref.read(appSettingsProvider.notifier).state =
+                                    settings.copyWith(fontSize: newSize);
+                              },
+                              onScaleEnd: (details) {
+                                // Show toast with final font size
+                                final finalSize = ref
+                                    .read(appSettingsProvider)
+                                    .fontSize;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'Font Size: ${finalSize.toStringAsFixed(0)}',
+                                      textAlign: TextAlign.center,
+                                    ),
+                                    duration: const Duration(milliseconds: 800),
+                                    behavior: SnackBarBehavior.floating,
+                                    margin: const EdgeInsets.only(
+                                      top: 80,
+                                      left: 20,
+                                      right: 20,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    backgroundColor: Theme.of(
+                                      context,
+                                    ).colorScheme.primaryContainer,
+                                  ),
                                 );
                               },
-                              loading: () => const Center(
-                                child: CircularProgressIndicator(),
-                              ),
-                              error: (error, stack) => Center(
-                                child: Padding(
-                                  padding: const EdgeInsets.all(16),
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      const Icon(
-                                        Icons.error_outline,
-                                        size: 48,
-                                        color: Colors.red,
-                                      ),
-                                      const SizedBox(height: 16),
-                                      Text(
-                                        'Error loading verses',
-                                        style: Theme.of(
-                                          context,
-                                        ).textTheme.titleLarge,
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        error.toString(),
-                                        textAlign: TextAlign.center,
-                                        style: Theme.of(
-                                          context,
-                                        ).textTheme.bodyMedium,
-                                      ),
-                                    ],
+                              child: chapterVerses.when(
+                                data: (verses) {
+                                  if (verses.isEmpty) {
+                                    return const Center(
+                                      child: Text('No verses found'),
+                                    );
+                                  }
+
+                                  return VerseListWidget(
+                                    verses: verses,
+                                    fontSize: fontSize,
+                                    lineSpacing: settings.lineSpacing,
+                                    fontFamily: settings.fontFamily,
+                                    showVerseNumbers: settings.showVerseNumbers,
+                                    autoScroll: settings.autoScroll,
+                                    autoScrollSpeed: settings.autoScrollSpeed,
+                                    initialScrollOffset: chapterScrollOffset,
+                                    targetVerseNumber: targetVerse,
+                                    onTargetVerseHandled: () {
+                                      ref
+                                              .read(
+                                                targetVerseInChapterProvider
+                                                    .notifier,
+                                              )
+                                              .state =
+                                          null;
+                                    },
+                                    onScrollOffsetChanged: (offset) {
+                                      ref
+                                              .read(
+                                                currentChapterScrollOffsetProvider
+                                                    .notifier,
+                                              )
+                                              .state =
+                                          offset;
+
+                                      if (!_hydratedReadingPosition) return;
+                                      final repository = ref.read(
+                                        readingPositionRepositoryProvider,
+                                      );
+                                      final current = ref.read(
+                                        currentReferenceProvider,
+                                      );
+                                      repository.saveChapterOffset(
+                                        current.book,
+                                        current.chapter,
+                                        offset,
+                                      );
+
+                                      if (settings.readingMode) {
+                                        _handleModeButtonVisibility(
+                                          readingMode: true,
+                                        );
+                                      }
+                                    },
+                                  );
+                                },
+                                loading: () => const Center(
+                                  child: CircularProgressIndicator(),
+                                ),
+                                error: (error, stack) => Center(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(16),
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(
+                                          Icons.error_outline,
+                                          size: 48,
+                                          color: Colors.red,
+                                        ),
+                                        const SizedBox(height: 16),
+                                        Text(
+                                          'Error loading verses',
+                                          style: Theme.of(
+                                            context,
+                                          ).textTheme.titleLarge,
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          error.toString(),
+                                          textAlign: TextAlign.center,
+                                          style: Theme.of(
+                                            context,
+                                          ).textTheme.bodyMedium,
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                      ],
-                    );
-                  },
+                        ],
+                      );
+                    },
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
 
-          // Floating action buttons with safe area for Android nav bar
-          // Floating action buttons with conditional safe area
-          if (!settings.readingMode)
-            FutureBuilder<bool>(
-              future: NavigationUtils.hasSystemNavBar(),
-              builder: (context, snapshot) {
-                final hasNavBar = snapshot.data ?? false;
-                final buttonsStack = Positioned.fill(
-                  child: Stack(
-                    children: [
-                      // Previous button (left)
-                      Positioned(
-                        left: 16,
-                        bottom: 96,
-                        child: FloatingActionButton(
-                          heroTag: 'previous',
-                          backgroundColor: Theme.of(
-                            context,
-                          ).colorScheme.primaryContainer,
-                          foregroundColor: Theme.of(
-                            context,
-                          ).colorScheme.onPrimaryContainer,
-                          elevation: 6,
-                          shape: const CircleBorder(),
-                          onPressed: () {
-                            final newChapter = currentReference.chapter - 1;
-                            if (newChapter >= 1) {
-                              ref
-                                  .read(currentReferenceProvider.notifier)
-                                  .state = currentReference.copyWith(
-                                chapter: newChapter,
-                                verse: 1,
-                              );
-                            }
-                          },
-                          child: const Icon(Icons.arrow_back_ios_new, size: 20),
-                        ),
-                      ),
-
-                      // Next button (right)
-                      Positioned(
-                        right: 16,
-                        bottom: 96,
-                        child: FloatingActionButton(
-                          heroTag: 'next',
-                          backgroundColor: Theme.of(
-                            context,
-                          ).colorScheme.primaryContainer,
-                          foregroundColor: Theme.of(
-                            context,
-                          ).colorScheme.onPrimaryContainer,
-                          elevation: 6,
-                          shape: const CircleBorder(),
-                          onPressed: () {
-                            final bookChapterCount = ref.read(
-                              currentBookChapterCountProvider,
-                            );
-                            final newChapter = currentReference.chapter + 1;
-                            if (newChapter <= bookChapterCount) {
-                              ref
-                                  .read(currentReferenceProvider.notifier)
-                                  .state = currentReference.copyWith(
-                                chapter: newChapter,
-                                verse: 1,
-                              );
-                            }
-                          },
-                          child: const Icon(Icons.arrow_forward_ios, size: 20),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-
-                return hasNavBar
-                    ? SafeArea(top: false, child: buttonsStack)
-                    : buttonsStack;
-              },
-            ),
           if (!settings.readingMode)
             FutureBuilder<bool>(
               future: NavigationUtils.hasSystemNavBar(),
@@ -571,20 +555,18 @@ class _BibleHomeScreenState extends ConsumerState<BibleHomeScreen> {
                     : floatingBar;
               },
             ),
-          if (settings.readingMode)
+          if (_showModeToggleButton)
             Positioned(
               top: 8,
               right: 8,
               child: SafeArea(
-                child: Material(
-                  color: Theme.of(context).colorScheme.surface.withOpacity(0.7),
-                  borderRadius: BorderRadius.circular(20),
-                  child: IconButton(
-                    icon: const Icon(Icons.settings),
-                    tooltip: 'Settings',
-                    onPressed: () {
-                      _openSettingsSheet(context);
-                    },
+                child: FloatingActionButton.small(
+                  heroTag: 'mode_toggle',
+                  onPressed: () => _toggleReadingMode(settings),
+                  child: Icon(
+                    settings.readingMode
+                        ? Icons.menu_book_outlined
+                        : Icons.chrome_reader_mode,
                   ),
                 ),
               ),

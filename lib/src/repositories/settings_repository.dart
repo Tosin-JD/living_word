@@ -17,7 +17,7 @@ class SettingsRepository {
     return AppSettings(
       themeMode: AppThemeMode.values.firstWhere(
         (item) => item.name == json['themeMode'],
-        orElse: () => AppThemeMode.system,
+        orElse: () => AppThemeMode.light,
       ),
       fontSize: (json['fontSize'] as num?)?.toDouble() ?? 16.0,
       fontFamily: json['fontFamily'] as String? ?? 'System',
