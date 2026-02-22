@@ -371,7 +371,7 @@ class _VerseListWidgetState extends ConsumerState<VerseListWidget> {
                       children: [
                         if (widget.showVerseNumbers)
                           SizedBox(
-                            width: 40,
+                            width: 20,
                             child: Text(
                               '${verse.reference.verse}',
                               style: TextStyle(
@@ -384,7 +384,7 @@ class _VerseListWidgetState extends ConsumerState<VerseListWidget> {
                               textAlign: TextAlign.right,
                             ),
                           ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 4),
                         Expanded(
                           child: Text(
                             verse.text,
