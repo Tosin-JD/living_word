@@ -11,6 +11,10 @@ class VerseListWidget extends ConsumerStatefulWidget {
   final bool showVerseNumbers;
   final bool autoScroll;
   final double autoScrollSpeed;
+  final double initialScrollOffset;
+  final ValueChanged<double>? onScrollOffsetChanged;
+  final int? targetVerseNumber;
+  final VoidCallback? onTargetVerseHandled;
 
   const VerseListWidget({
     super.key,
@@ -21,6 +25,10 @@ class VerseListWidget extends ConsumerStatefulWidget {
     this.showVerseNumbers = true,
     this.autoScroll = false,
     this.autoScrollSpeed = 12.0,
+    this.initialScrollOffset = 0.0,
+    this.onScrollOffsetChanged,
+    this.targetVerseNumber,
+    this.onTargetVerseHandled,
   });
 
   @override
@@ -32,6 +40,8 @@ class _VerseListWidgetState extends ConsumerState<VerseListWidget> {
 
   late final ScrollController _scrollController;
   Timer? _autoScrollTimer;
+  Timer? _scrollUpdateDebounce;
+  final Map<int, GlobalKey> _verseItemKeys = <int, GlobalKey>{};
 
   String? _resolveFontFamily() {
     switch (widget.fontFamily) {
@@ -80,12 +90,16 @@ class _VerseListWidgetState extends ConsumerState<VerseListWidget> {
   @override
   void initState() {
     super.initState();
-    _scrollController = ScrollController();
+    _scrollController = ScrollController(
+      initialScrollOffset: widget.initialScrollOffset,
+    );
+    _scrollController.addListener(_handleScrollOffsetChange);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && widget.autoScroll) {
         _startAutoScroll();
       }
+      _scrollToTargetVerse();
     });
   }
 
@@ -98,13 +112,73 @@ class _VerseListWidgetState extends ConsumerState<VerseListWidget> {
     } else if (!widget.autoScroll && oldWidget.autoScroll) {
       _stopAutoScroll();
     }
+
+    final oldBook = oldWidget.verses.isNotEmpty
+        ? oldWidget.verses.first.reference.book
+        : null;
+    final oldChapter = oldWidget.verses.isNotEmpty
+        ? oldWidget.verses.first.reference.chapter
+        : null;
+    final newBook = widget.verses.isNotEmpty
+        ? widget.verses.first.reference.book
+        : null;
+    final newChapter = widget.verses.isNotEmpty
+        ? widget.verses.first.reference.chapter
+        : null;
+
+    final chapterChanged = oldBook != newBook || oldChapter != newChapter;
+    if (chapterChanged) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_scrollController.hasClients) return;
+        final target = widget.initialScrollOffset.clamp(
+          0.0,
+          _scrollController.position.maxScrollExtent,
+        );
+        _scrollController.jumpTo(target);
+      });
+    }
+
+    if (widget.targetVerseNumber != null &&
+        widget.targetVerseNumber != oldWidget.targetVerseNumber) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _scrollToTargetVerse(),
+      );
+    }
   }
 
   @override
   void dispose() {
     _stopAutoScroll();
+    _scrollUpdateDebounce?.cancel();
+    _scrollController.removeListener(_handleScrollOffsetChange);
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _handleScrollOffsetChange() {
+    if (widget.onScrollOffsetChanged == null) return;
+    _scrollUpdateDebounce?.cancel();
+    _scrollUpdateDebounce = Timer(const Duration(milliseconds: 250), () {
+      if (!mounted || !_scrollController.hasClients) return;
+      widget.onScrollOffsetChanged!(_scrollController.offset);
+    });
+  }
+
+  void _scrollToTargetVerse() {
+    final target = widget.targetVerseNumber;
+    if (target == null) return;
+
+    final key = _verseItemKeys[target];
+    final targetContext = key?.currentContext;
+    if (targetContext == null) return;
+
+    Scrollable.ensureVisible(
+      targetContext,
+      alignment: 0.12,
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOutCubic,
+    );
+    widget.onTargetVerseHandled?.call();
   }
 
   void _startAutoScroll() {
@@ -145,7 +219,12 @@ class _VerseListWidgetState extends ConsumerState<VerseListWidget> {
       itemCount: widget.verses.length,
       itemBuilder: (context, index) {
         final verse = widget.verses[index];
+        final verseKey = _verseItemKeys.putIfAbsent(
+          verse.reference.verse,
+          () => GlobalKey(),
+        );
         return Padding(
+          key: verseKey,
           padding: const EdgeInsets.only(bottom: 12),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,

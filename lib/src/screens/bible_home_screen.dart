@@ -10,6 +10,7 @@ import '../widgets/bible_selector_dialog.dart';
 import '../widgets/translation_selector_dialog.dart';
 import '../utils/navigation_utils.dart';
 import 'reading_insights_screen.dart';
+import 'notifications_screen.dart';
 import 'reading_plan_screen.dart';
 import 'settings_screen.dart';
 
@@ -24,6 +25,27 @@ class _BibleHomeScreenState extends ConsumerState<BibleHomeScreen> {
   final GlobalKey<BibleSearchBarState> _searchBarKey =
       GlobalKey<BibleSearchBarState>();
   bool _showSearchBar = false;
+  bool _hydratedReadingPosition = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(_hydrateReadingPosition);
+  }
+
+  Future<void> _hydrateReadingPosition() async {
+    final repository = ref.read(readingPositionRepositoryProvider);
+    final lastReference = await repository.loadLastReference();
+    if (lastReference != null) {
+      ref.read(currentReferenceProvider.notifier).state = lastReference;
+      final offset = await repository.loadChapterOffset(
+        lastReference.book,
+        lastReference.chapter,
+      );
+      ref.read(currentChapterScrollOffsetProvider.notifier).state = offset;
+    }
+    _hydratedReadingPosition = true;
+  }
 
   void _openSettingsSheet(BuildContext context) {
     showModalBottomSheet<void>(
@@ -66,6 +88,20 @@ class _BibleHomeScreenState extends ConsumerState<BibleHomeScreen> {
     });
   }
 
+  void _openSearchFromHistory(String query) {
+    if (query.trim().isEmpty) {
+      _openSearchBar();
+      return;
+    }
+    if (!_showSearchBar) {
+      setState(() => _showSearchBar = true);
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _searchBarKey.currentState?.runSearch(query, openResults: true);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     ref.listen(currentReferenceProvider, (previous, next) {
@@ -73,12 +109,24 @@ class _BibleHomeScreenState extends ConsumerState<BibleHomeScreen> {
         ref
             .read(readingPlanControllerProvider.notifier)
             .markChapterRead(next.book, next.chapter);
+
+        if (_hydratedReadingPosition) {
+          final repository = ref.read(readingPositionRepositoryProvider);
+          repository.saveLastReference(next);
+          repository.loadChapterOffset(next.book, next.chapter).then((offset) {
+            ref.read(currentChapterScrollOffsetProvider.notifier).state =
+                offset;
+          });
+        }
       });
     });
 
     final currentReference = ref.watch(currentReferenceProvider);
     final currentTranslation = ref.watch(currentTranslationProvider);
     final chapterVerses = ref.watch(currentChapterVersesProvider);
+    final chapterScrollOffset = ref.watch(currentChapterScrollOffsetProvider);
+    final targetVerse = ref.watch(targetVerseInChapterProvider);
+    final searchHistory = ref.watch(searchHistoryProvider);
     final settings = ref.watch(appSettingsProvider);
     final fontSize = settings.fontSize;
 
@@ -146,6 +194,14 @@ class _BibleHomeScreenState extends ConsumerState<BibleHomeScreen> {
                       case 'settings':
                         _openSettingsSheet(context);
                         break;
+                      case 'notifications':
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const NotificationsScreen(),
+                          ),
+                        );
+                        break;
                       case 'about':
                         showAboutDialog(
                           context: context,
@@ -193,6 +249,16 @@ class _BibleHomeScreenState extends ConsumerState<BibleHomeScreen> {
                           Icon(Icons.insights),
                           SizedBox(width: 12),
                           Text('Insights'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem<String>(
+                      value: 'notifications',
+                      child: Row(
+                        children: [
+                          Icon(Icons.notifications),
+                          SizedBox(width: 12),
+                          Text('Notifications'),
                         ],
                       ),
                     ),
@@ -339,6 +405,39 @@ class _BibleHomeScreenState extends ConsumerState<BibleHomeScreen> {
                                   showVerseNumbers: settings.showVerseNumbers,
                                   autoScroll: settings.autoScroll,
                                   autoScrollSpeed: settings.autoScrollSpeed,
+                                  initialScrollOffset: chapterScrollOffset,
+                                  targetVerseNumber: targetVerse,
+                                  onTargetVerseHandled: () {
+                                    ref
+                                            .read(
+                                              targetVerseInChapterProvider
+                                                  .notifier,
+                                            )
+                                            .state =
+                                        null;
+                                  },
+                                  onScrollOffsetChanged: (offset) {
+                                    ref
+                                            .read(
+                                              currentChapterScrollOffsetProvider
+                                                  .notifier,
+                                            )
+                                            .state =
+                                        offset;
+
+                                    if (!_hydratedReadingPosition) return;
+                                    final repository = ref.read(
+                                      readingPositionRepositoryProvider,
+                                    );
+                                    final current = ref.read(
+                                      currentReferenceProvider,
+                                    );
+                                    repository.saveChapterOffset(
+                                      current.book,
+                                      current.chapter,
+                                      offset,
+                                    );
+                                  },
                                 );
                               },
                               loading: () => const Center(
@@ -486,6 +585,24 @@ class _BibleHomeScreenState extends ConsumerState<BibleHomeScreen> {
                     ? SafeArea(top: false, child: floatingBar)
                     : floatingBar;
               },
+            ),
+          if (!settings.readingMode && searchHistory.isNotEmpty)
+            Positioned(
+              bottom: 88,
+              child: SafeArea(
+                top: false,
+                child: SizedBox(
+                  width: MediaQuery.of(context).size.width,
+                  child: Center(
+                    child: FloatingActionButton.small(
+                      heroTag: 'search_history_fab',
+                      onPressed: () =>
+                          _openSearchFromHistory(searchHistory.first),
+                      child: const Icon(Icons.search),
+                    ),
+                  ),
+                ),
+              ),
             ),
           if (settings.readingMode)
             Positioned(

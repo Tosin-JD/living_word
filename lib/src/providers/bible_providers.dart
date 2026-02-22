@@ -4,6 +4,8 @@ import '../models/bible_reference.dart';
 import '../models/verse.dart';
 import '../models/search_result.dart';
 import '../repositories/bible_repository.dart';
+import '../repositories/reading_position_repository.dart';
+import '../repositories/search_history_repository.dart';
 import '../services/search_service.dart';
 import '../data/bible_books.dart';
 
@@ -20,6 +22,18 @@ final bibleRepositoryProvider = Provider<BibleRepository>((ref) {
 final searchServiceProvider = Provider<SearchService>((ref) {
   final repository = ref.watch(bibleRepositoryProvider);
   return SearchService(repository);
+});
+
+final readingPositionRepositoryProvider = Provider<ReadingPositionRepository>((
+  ref,
+) {
+  return ReadingPositionRepository();
+});
+
+final searchHistoryRepositoryProvider = Provider<SearchHistoryRepository>((
+  ref,
+) {
+  return SearchHistoryRepository();
 });
 
 // ============================================================================
@@ -90,6 +104,12 @@ final currentReferenceProvider = StateProvider<BibleReference>((ref) {
   return const BibleReference(book: 'Genesis', chapter: 1, verse: 1);
 });
 
+/// Current chapter scroll offset used to restore in-chapter position.
+final currentChapterScrollOffsetProvider = StateProvider<double>((ref) => 0.0);
+
+/// Verse target to scroll to inside the loaded chapter.
+final targetVerseInChapterProvider = StateProvider<int?>((ref) => null);
+
 // ============================================================================
 // Bible Data Providers
 // ============================================================================
@@ -159,6 +179,55 @@ final currentChapterVerseCountProvider = FutureProvider<int>((ref) async {
 
 /// Current search query
 final searchQueryProvider = StateProvider<String>((ref) => '');
+
+class SearchHistoryController extends StateNotifier<List<String>> {
+  SearchHistoryController(this._repository) : super(const []) {
+    Future.microtask(_load);
+  }
+
+  final SearchHistoryRepository _repository;
+  static const _maxItems = 30;
+
+  Future<void> _load() async {
+    state = await _repository.loadHistory();
+  }
+
+  Future<void> addQuery(String query) async {
+    final normalized = query.trim();
+    if (normalized.isEmpty) return;
+
+    final next = <String>[normalized];
+    for (final item in state) {
+      if (item.toLowerCase() != normalized.toLowerCase()) {
+        next.add(item);
+      }
+    }
+
+    if (next.length > _maxItems) {
+      next.removeRange(_maxItems, next.length);
+    }
+
+    state = next;
+    await _repository.saveHistory(next);
+  }
+
+  Future<void> removeQuery(String query) async {
+    final next = state.where((item) => item != query).toList();
+    state = next;
+    await _repository.saveHistory(next);
+  }
+
+  Future<void> clearAll() async {
+    state = const [];
+    await _repository.saveHistory(const []);
+  }
+}
+
+final searchHistoryProvider =
+    StateNotifierProvider<SearchHistoryController, List<String>>((ref) {
+      final repository = ref.watch(searchHistoryRepositoryProvider);
+      return SearchHistoryController(repository);
+    });
 
 /// Search results based on current query
 final searchResultsProvider = FutureProvider<List<SearchResult>>((ref) async {

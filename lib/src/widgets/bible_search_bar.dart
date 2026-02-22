@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../models/search_result.dart';
 import '../providers/bible_providers.dart';
 
 /// Search bar rendered near the top and controlled by parent visibility.
@@ -32,12 +34,34 @@ class BibleSearchBarState extends ConsumerState<BibleSearchBar> {
     SystemChannels.textInput.invokeMethod<void>('TextInput.show');
   }
 
-  void _performSearch() {
+  void runSearch(String query, {bool openResults = true, bool focus = false}) {
+    final normalized = query.trim();
+    if (normalized.isEmpty) return;
+
+    _controller.text = normalized;
+    _controller.selection = TextSelection.collapsed(offset: normalized.length);
+
+    if (focus) {
+      focusInput();
+    }
+
+    _performSearch(openResults: openResults);
+    setState(() {});
+  }
+
+  Future<void> _performSearch({bool openResults = true}) async {
     final query = _controller.text.trim();
     if (query.isEmpty) return;
 
     ref.read(searchQueryProvider.notifier).state = query;
-    _showSearchResults();
+    final results = await ref.read(searchResultsProvider.future);
+    if (results.isNotEmpty) {
+      await ref.read(searchHistoryProvider.notifier).addQuery(query);
+    }
+
+    if (openResults) {
+      _showSearchResults();
+    }
   }
 
   void _showSearchResults() {
@@ -52,7 +76,9 @@ class BibleSearchBarState extends ConsumerState<BibleSearchBar> {
         builder: (context, scrollController) {
           return _SearchResultsSheet(
             scrollController: scrollController,
-            query: _controller.text,
+            onRunSearchFromHistory: (query) {
+              runSearch(query, openResults: false, focus: false);
+            },
           );
         },
       ),
@@ -130,17 +156,19 @@ class BibleSearchBarState extends ConsumerState<BibleSearchBar> {
 
 /// Search results sheet
 class _SearchResultsSheet extends ConsumerWidget {
-  final ScrollController scrollController;
-  final String query;
-
   const _SearchResultsSheet({
     required this.scrollController,
-    required this.query,
+    required this.onRunSearchFromHistory,
   });
+
+  final ScrollController scrollController;
+  final ValueChanged<String> onRunSearchFromHistory;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final searchQuery = ref.watch(searchQueryProvider);
     final searchResults = ref.watch(searchResultsProvider);
+    final history = ref.watch(searchHistoryProvider);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -152,7 +180,7 @@ class _SearchResultsSheet extends ConsumerWidget {
             children: [
               Expanded(
                 child: Text(
-                  'Search Results for "$query"',
+                  'Search Results for "$searchQuery"',
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -165,7 +193,49 @@ class _SearchResultsSheet extends ConsumerWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          if (history.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Recent searches',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () {
+                    ref.read(searchHistoryProvider.notifier).clearAll();
+                  },
+                  child: const Text('Clear all'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: history.map((item) {
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: InputChip(
+                      label: Text(item),
+                      onPressed: () {
+                        ref.read(searchQueryProvider.notifier).state = item;
+                        onRunSearchFromHistory(item);
+                      },
+                      onDeleted: () {
+                        ref
+                            .read(searchHistoryProvider.notifier)
+                            .removeQuery(item);
+                      },
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
           Expanded(
             child: searchResults.when(
               data: (results) {
@@ -178,30 +248,7 @@ class _SearchResultsSheet extends ConsumerWidget {
                   itemCount: results.length,
                   itemBuilder: (context, index) {
                     final result = results[index];
-                    final verse = result.verse;
-
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      child: ListTile(
-                        title: Text(
-                          '${verse.reference.book} ${verse.reference.chapter}:${verse.reference.verse}',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        subtitle: Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: Text(
-                            verse.text,
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        onTap: () {
-                          ref.read(currentReferenceProvider.notifier).state =
-                              verse.reference;
-                          Navigator.pop(context);
-                        },
-                      ),
-                    );
+                    return _SearchResultTile(result: result);
                   },
                 );
               },
@@ -210,6 +257,37 @@ class _SearchResultsSheet extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _SearchResultTile extends ConsumerWidget {
+  const _SearchResultTile({required this.result});
+
+  final SearchResult result;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final verse = result.verse;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: ListTile(
+        title: Text(
+          '${verse.reference.book} ${verse.reference.chapter}:${verse.reference.verse}',
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Text(verse.text, maxLines: 3, overflow: TextOverflow.ellipsis),
+        ),
+        onTap: () {
+          ref.read(targetVerseInChapterProvider.notifier).state =
+              verse.reference.verse;
+          ref.read(currentReferenceProvider.notifier).state = verse.reference;
+          Navigator.pop(context);
+        },
       ),
     );
   }

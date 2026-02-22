@@ -60,6 +60,31 @@ class SettingsRepository {
           json['readingPlanReminderStartHour'] as int? ?? 8,
       readingPlanReminderEndHour:
           json['readingPlanReminderEndHour'] as int? ?? 22,
+      memoryVerseEnabled: json['memoryVerseEnabled'] as bool? ?? false,
+      memoryVerseCadence: MemoryVerseCadence.values.firstWhere(
+        (item) => item.name == json['memoryVerseCadence'],
+        orElse: () => MemoryVerseCadence.defaultFourTimes,
+      ),
+      memoryVerseWindowStartHour:
+          json['memoryVerseWindowStartHour'] as int? ??
+          json['memoryVerseHour'] as int? ??
+          9,
+      memoryVerseWindowStartMinute:
+          json['memoryVerseWindowStartMinute'] as int? ??
+          json['memoryVerseMinute'] as int? ??
+          0,
+      memoryVerseWindowEndHour: json['memoryVerseWindowEndHour'] as int? ?? 18,
+      memoryVerseWindowEndMinute:
+          json['memoryVerseWindowEndMinute'] as int? ?? 0,
+      memoryVerseMode: MemoryVerseMode.values.firstWhere(
+        (item) => item.name == json['memoryVerseMode'],
+        orElse: () => MemoryVerseMode.encouragementRandom,
+      ),
+      curatedMemoryVerseReferences:
+          (json['curatedMemoryVerseReferences'] as List<dynamic>? ??
+                  <dynamic>[])
+              .map((item) => item as String)
+              .toList(),
     );
   }
 
@@ -91,6 +116,14 @@ class SettingsRepository {
       'readingPlanAlarmEnabled': settings.readingPlanAlarmEnabled,
       'readingPlanReminderStartHour': settings.readingPlanReminderStartHour,
       'readingPlanReminderEndHour': settings.readingPlanReminderEndHour,
+      'memoryVerseEnabled': settings.memoryVerseEnabled,
+      'memoryVerseCadence': settings.memoryVerseCadence.name,
+      'memoryVerseWindowStartHour': settings.memoryVerseWindowStartHour,
+      'memoryVerseWindowStartMinute': settings.memoryVerseWindowStartMinute,
+      'memoryVerseWindowEndHour': settings.memoryVerseWindowEndHour,
+      'memoryVerseWindowEndMinute': settings.memoryVerseWindowEndMinute,
+      'memoryVerseMode': settings.memoryVerseMode.name,
+      'curatedMemoryVerseReferences': settings.curatedMemoryVerseReferences,
     };
 
     await prefs.setString(_settingsKey, jsonEncode(json));

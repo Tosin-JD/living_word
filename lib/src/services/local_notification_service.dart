@@ -36,6 +36,8 @@ class LocalNotificationService {
 
   static const int _readingReminderIdStart = 5000;
   static const int _readingReminderIdEnd = 5060;
+  static const int _memoryVerseIdStart = 7000;
+  static const int _memoryVerseIdEnd = 7999;
 
   static const String _prefPauseUntil = 'reading_plan_pause_until_v1';
   static const String _prefPauseDate = 'reading_plan_pause_date_v1';
@@ -220,6 +222,38 @@ class LocalNotificationService {
     );
   }
 
+  Future<void> syncMemoryVerseReminders({
+    required AppSettings settings,
+    required List<MemoryVerseScheduleItem> items,
+  }) async {
+    await initialize();
+    await _cancelMemoryVerseReminderIds();
+
+    if (!settings.memoryVerseEnabled || items.isEmpty) {
+      return;
+    }
+
+    final now = DateTime.now();
+    var id = _memoryVerseIdStart;
+
+    for (final item in items) {
+      if (id > _memoryVerseIdEnd) break;
+      if (!item.scheduledAt.isAfter(now)) continue;
+
+      await _plugin.zonedSchedule(
+        id,
+        'Memory verse',
+        item.body,
+        tz.TZDateTime.from(item.scheduledAt, tz.local),
+        _buildDetails(settings),
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
+      id++;
+    }
+  }
+
   Future<void> showTestNotification(AppSettings settings) async {
     await initialize();
     await requestPermissions();
@@ -387,6 +421,12 @@ class LocalNotificationService {
 
   Future<void> _cancelReadingPlanReminderIds() async {
     for (var id = _readingReminderIdStart; id <= _readingReminderIdEnd; id++) {
+      await _plugin.cancel(id);
+    }
+  }
+
+  Future<void> _cancelMemoryVerseReminderIds() async {
+    for (var id = _memoryVerseIdStart; id <= _memoryVerseIdEnd; id++) {
       await _plugin.cancel(id);
     }
   }
@@ -689,5 +729,15 @@ class _StoredReadingContext {
     required this.endHour,
     required this.body,
     required this.settings,
+  });
+}
+
+class MemoryVerseScheduleItem {
+  final DateTime scheduledAt;
+  final String body;
+
+  const MemoryVerseScheduleItem({
+    required this.scheduledAt,
+    required this.body,
   });
 }

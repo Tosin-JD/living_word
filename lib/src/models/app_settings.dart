@@ -15,6 +15,16 @@ enum NotificationType {
 
 enum NotificationTime { morning, afternoon, evening, custom }
 
+enum MemoryVerseMode { encouragementRandom, encouragementSequential, curated }
+
+enum MemoryVerseCadence {
+  defaultFourTimes,
+  every30Minutes,
+  hourly,
+  every2Hours,
+  onceDaily,
+}
+
 class AppSettings {
   // Theme settings
   final AppThemeMode themeMode;
@@ -46,6 +56,16 @@ class AppSettings {
   final int readingPlanReminderStartHour;
   final int readingPlanReminderEndHour;
 
+  // Memory verse
+  final bool memoryVerseEnabled;
+  final MemoryVerseCadence memoryVerseCadence;
+  final int memoryVerseWindowStartHour;
+  final int memoryVerseWindowStartMinute;
+  final int memoryVerseWindowEndHour;
+  final int memoryVerseWindowEndMinute;
+  final MemoryVerseMode memoryVerseMode;
+  final List<String> curatedMemoryVerseReferences;
+
   const AppSettings({
     this.themeMode = AppThemeMode.system,
     this.fontSize = 16.0,
@@ -71,6 +91,14 @@ class AppSettings {
     this.readingPlanAlarmEnabled = true,
     this.readingPlanReminderStartHour = 8,
     this.readingPlanReminderEndHour = 22,
+    this.memoryVerseEnabled = false,
+    this.memoryVerseCadence = MemoryVerseCadence.defaultFourTimes,
+    this.memoryVerseWindowStartHour = 9,
+    this.memoryVerseWindowStartMinute = 0,
+    this.memoryVerseWindowEndHour = 18,
+    this.memoryVerseWindowEndMinute = 0,
+    this.memoryVerseMode = MemoryVerseMode.encouragementRandom,
+    this.curatedMemoryVerseReferences = const [],
   });
 
   AppSettings copyWith({
@@ -98,6 +126,14 @@ class AppSettings {
     bool? readingPlanAlarmEnabled,
     int? readingPlanReminderStartHour,
     int? readingPlanReminderEndHour,
+    bool? memoryVerseEnabled,
+    MemoryVerseCadence? memoryVerseCadence,
+    int? memoryVerseWindowStartHour,
+    int? memoryVerseWindowStartMinute,
+    int? memoryVerseWindowEndHour,
+    int? memoryVerseWindowEndMinute,
+    MemoryVerseMode? memoryVerseMode,
+    List<String>? curatedMemoryVerseReferences,
   }) {
     return AppSettings(
       themeMode: themeMode ?? this.themeMode,
@@ -131,6 +167,19 @@ class AppSettings {
           readingPlanReminderStartHour ?? this.readingPlanReminderStartHour,
       readingPlanReminderEndHour:
           readingPlanReminderEndHour ?? this.readingPlanReminderEndHour,
+      memoryVerseEnabled: memoryVerseEnabled ?? this.memoryVerseEnabled,
+      memoryVerseCadence: memoryVerseCadence ?? this.memoryVerseCadence,
+      memoryVerseWindowStartHour:
+          memoryVerseWindowStartHour ?? this.memoryVerseWindowStartHour,
+      memoryVerseWindowStartMinute:
+          memoryVerseWindowStartMinute ?? this.memoryVerseWindowStartMinute,
+      memoryVerseWindowEndHour:
+          memoryVerseWindowEndHour ?? this.memoryVerseWindowEndHour,
+      memoryVerseWindowEndMinute:
+          memoryVerseWindowEndMinute ?? this.memoryVerseWindowEndMinute,
+      memoryVerseMode: memoryVerseMode ?? this.memoryVerseMode,
+      curatedMemoryVerseReferences:
+          curatedMemoryVerseReferences ?? this.curatedMemoryVerseReferences,
     );
   }
 }
