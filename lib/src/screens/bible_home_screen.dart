@@ -84,21 +84,7 @@ class _BibleHomeScreenState extends ConsumerState<BibleHomeScreen> {
     }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _searchBarKey.currentState?.focusInput();
-    });
-  }
-
-  void _openSearchFromHistory(String query) {
-    if (query.trim().isEmpty) {
-      _openSearchBar();
-      return;
-    }
-    if (!_showSearchBar) {
-      setState(() => _showSearchBar = true);
-    }
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _searchBarKey.currentState?.runSearch(query, openResults: true);
+      _searchBarKey.currentState?.openFromSearchButton();
     });
   }
 
@@ -126,7 +112,6 @@ class _BibleHomeScreenState extends ConsumerState<BibleHomeScreen> {
     final chapterVerses = ref.watch(currentChapterVersesProvider);
     final chapterScrollOffset = ref.watch(currentChapterScrollOffsetProvider);
     final targetVerse = ref.watch(targetVerseInChapterProvider);
-    final searchHistory = ref.watch(searchHistoryProvider);
     final settings = ref.watch(appSettingsProvider);
     final fontSize = settings.fontSize;
 
@@ -585,24 +570,6 @@ class _BibleHomeScreenState extends ConsumerState<BibleHomeScreen> {
                     ? SafeArea(top: false, child: floatingBar)
                     : floatingBar;
               },
-            ),
-          if (!settings.readingMode && searchHistory.isNotEmpty)
-            Positioned(
-              bottom: 88,
-              child: SafeArea(
-                top: false,
-                child: SizedBox(
-                  width: MediaQuery.of(context).size.width,
-                  child: Center(
-                    child: FloatingActionButton.small(
-                      heroTag: 'search_history_fab',
-                      onPressed: () =>
-                          _openSearchFromHistory(searchHistory.first),
-                      child: const Icon(Icons.search),
-                    ),
-                  ),
-                ),
-              ),
             ),
           if (settings.readingMode)
             Positioned(
