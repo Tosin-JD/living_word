@@ -723,6 +723,10 @@ class _BibleHomeScreenState extends ConsumerState<BibleHomeScreen>
                                                 fontFamily: settings.fontFamily,
                                                 showVerseNumbers:
                                                     settings.showVerseNumbers,
+                                                verseTextAlignment:
+                                                    settings.verseTextAlignment,
+                                                readingMode:
+                                                    settings.readingMode,
                                                 autoScroll: settings.autoScroll,
                                                 autoScrollSpeed:
                                                     settings.autoScrollSpeed,

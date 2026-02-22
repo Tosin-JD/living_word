@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 enum AppThemeMode { light, dark, sepia, rose, paper, amoled }
 
+enum VerseTextAlignment { left, justify }
+
 enum NotificationFrequency { daily, weekly, custom, off }
 
 enum NotificationType {
@@ -40,6 +42,7 @@ class AppSettings {
   final String defaultTranslation;
   final bool parallelTranslations;
   final bool showVerseNumbers;
+  final VerseTextAlignment verseTextAlignment;
   final bool readingMode;
   final bool autoScroll;
   final double autoScrollSpeed;
@@ -83,6 +86,7 @@ class AppSettings {
     this.defaultTranslation = 'HOLMAN CHRISTIAN STANDARD BIBLE.json',
     this.parallelTranslations = false,
     this.showVerseNumbers = true,
+    this.verseTextAlignment = VerseTextAlignment.left,
     this.readingMode = false,
     this.autoScroll = false,
     this.autoScrollSpeed = 12.0,
@@ -129,6 +133,7 @@ class AppSettings {
     String? defaultTranslation,
     bool? parallelTranslations,
     bool? showVerseNumbers,
+    VerseTextAlignment? verseTextAlignment,
     bool? readingMode,
     bool? autoScroll,
     double? autoScrollSpeed,
@@ -168,6 +173,7 @@ class AppSettings {
       defaultTranslation: defaultTranslation ?? this.defaultTranslation,
       parallelTranslations: parallelTranslations ?? this.parallelTranslations,
       showVerseNumbers: showVerseNumbers ?? this.showVerseNumbers,
+      verseTextAlignment: verseTextAlignment ?? this.verseTextAlignment,
       readingMode: readingMode ?? this.readingMode,
       autoScroll: autoScroll ?? this.autoScroll,
       autoScrollSpeed: autoScrollSpeed ?? this.autoScrollSpeed,

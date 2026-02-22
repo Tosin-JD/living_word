@@ -27,6 +27,10 @@ class SettingsRepository {
           'HOLMAN CHRISTIAN STANDARD BIBLE.json',
       parallelTranslations: json['parallelTranslations'] as bool? ?? false,
       showVerseNumbers: json['showVerseNumbers'] as bool? ?? true,
+      verseTextAlignment: VerseTextAlignment.values.firstWhere(
+        (item) => item.name == json['verseTextAlignment'],
+        orElse: () => VerseTextAlignment.left,
+      ),
       readingMode: json['readingMode'] as bool? ?? false,
       autoScroll: json['autoScroll'] as bool? ?? false,
       autoScrollSpeed: (json['autoScrollSpeed'] as num?)?.toDouble() ?? 12.0,
@@ -134,6 +138,7 @@ class SettingsRepository {
       'defaultTranslation': settings.defaultTranslation,
       'parallelTranslations': settings.parallelTranslations,
       'showVerseNumbers': settings.showVerseNumbers,
+      'verseTextAlignment': settings.verseTextAlignment.name,
       'readingMode': settings.readingMode,
       'autoScroll': settings.autoScroll,
       'autoScrollSpeed': settings.autoScrollSpeed,

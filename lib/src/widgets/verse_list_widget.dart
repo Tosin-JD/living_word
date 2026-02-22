@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../models/app_settings.dart';
 import '../models/verse.dart';
 
 class VerseListWidget extends ConsumerStatefulWidget {
@@ -13,6 +14,8 @@ class VerseListWidget extends ConsumerStatefulWidget {
   final double lineSpacing;
   final String fontFamily;
   final bool showVerseNumbers;
+  final VerseTextAlignment verseTextAlignment;
+  final bool readingMode;
   final bool autoScroll;
   final double autoScrollSpeed;
   final double initialScrollOffset;
@@ -28,6 +31,8 @@ class VerseListWidget extends ConsumerStatefulWidget {
     this.lineSpacing = 1.6,
     this.fontFamily = 'System',
     this.showVerseNumbers = true,
+    this.verseTextAlignment = VerseTextAlignment.left,
+    this.readingMode = false,
     this.autoScroll = false,
     this.autoScrollSpeed = 12.0,
     this.initialScrollOffset = 0.0,
@@ -350,9 +355,18 @@ class _VerseListWidgetState extends ConsumerState<VerseListWidget> {
   Widget build(BuildContext context) {
     final resolvedFontFamily = _resolveFontFamily();
     final resolvedFontFallback = _resolveFontFallback();
+    final textAlign = widget.verseTextAlignment == VerseTextAlignment.justify
+        ? TextAlign.justify
+        : TextAlign.left;
     final safeBottomInset = MediaQuery.of(context).padding.bottom;
     const chapterOverlayClearance = 110.0;
     const selectionToolbarExtraClearance = 176.0;
+    final chapterTopPadding = widget.readingMode ? 72.0 : 28.0;
+    final showChapterOneHeader =
+        widget.verses.isNotEmpty && widget.verses.first.reference.chapter == 1;
+    final chapterTitle = showChapterOneHeader
+        ? '${widget.verses.first.reference.book} 1'
+        : null;
     final bottomPadding =
         chapterOverlayClearance +
         safeBottomInset +
@@ -363,9 +377,35 @@ class _VerseListWidgetState extends ConsumerState<VerseListWidget> {
         ListView.builder(
           controller: _scrollController,
           padding: EdgeInsets.fromLTRB(10, 12, 10, bottomPadding),
-          itemCount: widget.verses.length,
+          itemCount: widget.verses.length + 1,
           itemBuilder: (context, index) {
-            final verse = widget.verses[index];
+            if (index == 0) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(height: chapterTopPadding),
+                    if (showChapterOneHeader) ...[
+                      Text(
+                        chapterTitle!,
+                        style: TextStyle(
+                          fontSize: (widget.fontSize + 12).clamp(28.0, 44.0),
+                          fontWeight: FontWeight.w800,
+                          height: 1.05,
+                          fontFamily: resolvedFontFamily,
+                          fontFamilyFallback: resolvedFontFallback,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                    ],
+                  ],
+                ),
+              );
+            }
+
+            final verse = widget.verses[index - 1];
             final verseKey = _verseItemKeys.putIfAbsent(
               verse.reference.verse,
               () => GlobalKey(),
@@ -412,6 +452,7 @@ class _VerseListWidgetState extends ConsumerState<VerseListWidget> {
                         Expanded(
                           child: Text(
                             verse.text,
+                            textAlign: textAlign,
                             style: TextStyle(
                               fontSize: widget.fontSize,
                               height: widget.lineSpacing,

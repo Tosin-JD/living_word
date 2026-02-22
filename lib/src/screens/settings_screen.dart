@@ -72,6 +72,7 @@ class SettingsContent extends ConsumerWidget {
         _buildFontSizeSlider(context, ref, settings),
         _buildFontStyleSelector(context, ref, settings),
         _buildLineSpacingSlider(context, ref, settings),
+        _buildTextAlignmentSelector(context, ref, settings),
         _buildToggleTile(
           title: 'Show verse numbers',
           subtitle: 'Display verse numbers beside text',
@@ -363,6 +364,41 @@ class SettingsContent extends ConsumerWidget {
         },
       ),
       trailing: Text(label, style: Theme.of(context).textTheme.bodySmall),
+    );
+  }
+
+  Widget _buildTextAlignmentSelector(
+    BuildContext context,
+    WidgetRef ref,
+    AppSettings settings,
+  ) {
+    return ListTile(
+      leading: const Icon(Icons.format_align_left),
+      title: const Text('Text alignment'),
+      subtitle: DropdownButtonFormField<VerseTextAlignment>(
+        value: settings.verseTextAlignment,
+        isExpanded: true,
+        decoration: const InputDecoration(
+          isDense: true,
+          border: InputBorder.none,
+        ),
+        items: const [
+          DropdownMenuItem(
+            value: VerseTextAlignment.left,
+            child: Text('Align left'),
+          ),
+          DropdownMenuItem(
+            value: VerseTextAlignment.justify,
+            child: Text('Justify'),
+          ),
+        ],
+        onChanged: (value) {
+          if (value == null) return;
+          ref.read(appSettingsProvider.notifier).state = settings.copyWith(
+            verseTextAlignment: value,
+          );
+        },
+      ),
     );
   }
 
