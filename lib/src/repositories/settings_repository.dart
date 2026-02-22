@@ -48,10 +48,45 @@ class SettingsRepository {
         (item) => item.name == json['notificationTime'],
         orElse: () => NotificationTime.morning,
       ),
+      notificationDayMode: NotificationDayMode.values.firstWhere(
+        (item) => item.name == json['notificationDayMode'],
+        orElse: () => NotificationDayMode.everyDay,
+      ),
+      customNotificationWeekdays: (() {
+        final parsed =
+            (json['customNotificationWeekdays'] as List<dynamic>?)
+                ?.map((item) => item as int)
+                .where(
+                  (day) => day >= DateTime.monday && day <= DateTime.sunday,
+                )
+                .toSet() ??
+            <int>{};
+
+        if (parsed.isNotEmpty) return parsed;
+        return {
+          DateTime.monday,
+          DateTime.tuesday,
+          DateTime.wednesday,
+          DateTime.thursday,
+          DateTime.friday,
+        };
+      })(),
       customNotificationHour: json['customNotificationHour'] as int? ?? 8,
       customNotificationMinute: json['customNotificationMinute'] as int? ?? 0,
       weeklyReminderWeekday:
           json['weeklyReminderWeekday'] as int? ?? DateTime.monday,
+      prayerReminderMinutes: (() {
+        final parsed =
+            (json['prayerReminderMinutes'] as List<dynamic>?)
+                ?.map((item) => item as int)
+                .where((minute) => minute >= 0 && minute < 1440)
+                .toList() ??
+            <int>[];
+        if (parsed.isNotEmpty) return parsed;
+        return <int>[360, 720, 1080];
+      })(),
+      devotionalReminderHour: json['devotionalReminderHour'] as int? ?? 8,
+      devotionalReminderMinute: json['devotionalReminderMinute'] as int? ?? 0,
       soundEnabled: json['soundEnabled'] as bool? ?? true,
       vibrationEnabled: json['vibrationEnabled'] as bool? ?? true,
       silentNotifications: json['silentNotifications'] as bool? ?? false,
@@ -107,9 +142,15 @@ class SettingsRepository {
           .map((item) => item.name)
           .toList(),
       'notificationTime': settings.notificationTime.name,
+      'notificationDayMode': settings.notificationDayMode.name,
+      'customNotificationWeekdays': settings.customNotificationWeekdays
+          .toList(),
       'customNotificationHour': settings.customNotificationHour,
       'customNotificationMinute': settings.customNotificationMinute,
       'weeklyReminderWeekday': settings.weeklyReminderWeekday,
+      'prayerReminderMinutes': settings.prayerReminderMinutes,
+      'devotionalReminderHour': settings.devotionalReminderHour,
+      'devotionalReminderMinute': settings.devotionalReminderMinute,
       'soundEnabled': settings.soundEnabled,
       'vibrationEnabled': settings.vibrationEnabled,
       'silentNotifications': settings.silentNotifications,

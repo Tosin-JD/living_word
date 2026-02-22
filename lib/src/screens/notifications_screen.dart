@@ -23,6 +23,9 @@ class NotificationsScreen extends ConsumerWidget {
             _buildEnableTile(ref, settings),
             _buildFrequencyTile(context, ref, settings),
             _buildTimeTile(context, ref, settings),
+            _buildDaySelectionTile(context, ref, settings),
+            if (settings.notificationDayMode == NotificationDayMode.custom)
+              _buildCustomDaysPreview(settings),
             if (settings.notificationTime == NotificationTime.custom)
               _buildCustomTimeTile(context, ref, settings),
             _buildActionTile(
@@ -74,6 +77,14 @@ class NotificationsScreen extends ConsumerWidget {
               NotificationType.devotionalReminder,
               'Devotional reminder',
             ),
+            if (settings.enabledNotifications.contains(
+              NotificationType.prayerReminder,
+            ))
+              _buildPrayerTimesEditor(context, ref, settings),
+            if (settings.enabledNotifications.contains(
+              NotificationType.devotionalReminder,
+            ))
+              _buildDevotionTimeTile(context, ref, settings),
 
             const Divider(height: 32),
             _buildSectionHeader('Reading Plan Alarm', Icons.alarm),
@@ -468,6 +479,142 @@ class NotificationsScreen extends ConsumerWidget {
     );
   }
 
+  Widget _buildDaySelectionTile(
+    BuildContext context,
+    WidgetRef ref,
+    AppSettings settings,
+  ) {
+    return ListTile(
+      leading: const Icon(Icons.calendar_month),
+      title: const Text('Notify on days'),
+      subtitle: Text(_dayModeLabel(settings)),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () {
+        var tempMode = settings.notificationDayMode;
+        var tempCustomDays = Set<int>.from(settings.customNotificationWeekdays);
+        if (tempCustomDays.isEmpty) {
+          tempCustomDays = {
+            DateTime.monday,
+            DateTime.tuesday,
+            DateTime.wednesday,
+            DateTime.thursday,
+            DateTime.friday,
+          };
+        }
+
+        showDialog<void>(
+          context: context,
+          builder: (context) => StatefulBuilder(
+            builder: (context, setDialogState) {
+              return AlertDialog(
+                title: const Text('Notification Days'),
+                content: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      RadioListTile<NotificationDayMode>(
+                        value: NotificationDayMode.everyDay,
+                        groupValue: tempMode,
+                        title: const Text('Every day'),
+                        onChanged: (value) {
+                          if (value == null) return;
+                          setDialogState(() => tempMode = value);
+                        },
+                      ),
+                      RadioListTile<NotificationDayMode>(
+                        value: NotificationDayMode.weekdays,
+                        groupValue: tempMode,
+                        title: const Text('Weekdays'),
+                        onChanged: (value) {
+                          if (value == null) return;
+                          setDialogState(() => tempMode = value);
+                        },
+                      ),
+                      RadioListTile<NotificationDayMode>(
+                        value: NotificationDayMode.weekends,
+                        groupValue: tempMode,
+                        title: const Text('Weekends'),
+                        onChanged: (value) {
+                          if (value == null) return;
+                          setDialogState(() => tempMode = value);
+                        },
+                      ),
+                      RadioListTile<NotificationDayMode>(
+                        value: NotificationDayMode.custom,
+                        groupValue: tempMode,
+                        title: const Text('Custom'),
+                        onChanged: (value) {
+                          if (value == null) return;
+                          setDialogState(() => tempMode = value);
+                        },
+                      ),
+                      if (tempMode == NotificationDayMode.custom)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: List.generate(7, (index) {
+                              final weekday = index + 1;
+                              final selected = tempCustomDays.contains(weekday);
+                              return FilterChip(
+                                label: Text(_weekdayShort(weekday)),
+                                selected: selected,
+                                onSelected: (isSelected) {
+                                  setDialogState(() {
+                                    if (isSelected) {
+                                      tempCustomDays.add(weekday);
+                                    } else if (tempCustomDays.length > 1) {
+                                      tempCustomDays.remove(weekday);
+                                    }
+                                  });
+                                },
+                              );
+                            }),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Cancel'),
+                  ),
+                  FilledButton(
+                    onPressed: () {
+                      ref.read(appSettingsProvider.notifier).state = settings
+                          .copyWith(
+                            notificationDayMode: tempMode,
+                            customNotificationWeekdays: tempCustomDays,
+                          );
+                      Navigator.pop(context);
+                    },
+                    child: const Text('Save'),
+                  ),
+                ],
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildCustomDaysPreview(AppSettings settings) {
+    final ordered = settings.customNotificationWeekdays.toList()..sort();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: ordered
+            .map((day) => Chip(label: Text(_weekdayLabel(day))))
+            .toList(),
+      ),
+    );
+  }
+
   Widget _buildTypeToggle(
     WidgetRef ref,
     AppSettings settings,
@@ -480,14 +627,125 @@ class NotificationsScreen extends ConsumerWidget {
       title: Text(label),
       onChanged: (value) {
         final next = Set<NotificationType>.from(settings.enabledNotifications);
+        var prayerTimes = List<int>.from(settings.prayerReminderMinutes);
+        var devotionHour = settings.devotionalReminderHour;
+        var devotionMinute = settings.devotionalReminderMinute;
+
         if (value == true) {
           next.add(type);
+          if (type == NotificationType.prayerReminder && prayerTimes.isEmpty) {
+            prayerTimes = [360, 720, 1080];
+          }
+          if (type == NotificationType.devotionalReminder &&
+              devotionHour == 0 &&
+              devotionMinute == 0) {
+            final defaultTime = _resolveGeneralTime(settings);
+            devotionHour = defaultTime.hour;
+            devotionMinute = defaultTime.minute;
+          }
         } else {
           next.remove(type);
         }
 
         ref.read(appSettingsProvider.notifier).state = settings.copyWith(
           enabledNotifications: next,
+          prayerReminderMinutes: prayerTimes,
+          devotionalReminderHour: devotionHour,
+          devotionalReminderMinute: devotionMinute,
+        );
+      },
+    );
+  }
+
+  Widget _buildPrayerTimesEditor(
+    BuildContext context,
+    WidgetRef ref,
+    AppSettings settings,
+  ) {
+    final times = List<int>.from(settings.prayerReminderMinutes)..sort();
+    return Column(
+      children: [
+        ListTile(
+          leading: const Icon(Icons.add_alarm),
+          title: const Text('Prayer times'),
+          subtitle: const Text('Add one or more times for prayer reminders'),
+          trailing: const Icon(Icons.add),
+          onTap: () async {
+            final selected = await showTimePicker(
+              context: context,
+              initialTime: const TimeOfDay(hour: 6, minute: 0),
+            );
+            if (selected == null) return;
+
+            final minutes = (selected.hour * 60) + selected.minute;
+            if (times.contains(minutes)) return;
+            final next = [...times, minutes]..sort();
+
+            ref.read(appSettingsProvider.notifier).state = settings.copyWith(
+              prayerReminderMinutes: next,
+            );
+          },
+        ),
+        if (times.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text('No prayer time added yet.'),
+            ),
+          )
+        else
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: times.map((value) {
+                final hour = value ~/ 60;
+                final minute = value % 60;
+                return Chip(
+                  label: Text(_formatTime(hour, minute)),
+                  onDeleted: () {
+                    final next = [...times]..remove(value);
+                    ref.read(appSettingsProvider.notifier).state = settings
+                        .copyWith(prayerReminderMinutes: next);
+                  },
+                );
+              }).toList(),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildDevotionTimeTile(
+    BuildContext context,
+    WidgetRef ref,
+    AppSettings settings,
+  ) {
+    return ListTile(
+      leading: const Icon(Icons.self_improvement),
+      title: const Text('Devotion time'),
+      subtitle: Text(
+        _formatTime(
+          settings.devotionalReminderHour,
+          settings.devotionalReminderMinute,
+        ),
+      ),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () async {
+        final selected = await showTimePicker(
+          context: context,
+          initialTime: TimeOfDay(
+            hour: settings.devotionalReminderHour,
+            minute: settings.devotionalReminderMinute,
+          ),
+        );
+        if (selected == null) return;
+
+        ref.read(appSettingsProvider.notifier).state = settings.copyWith(
+          devotionalReminderHour: selected.hour,
+          devotionalReminderMinute: selected.minute,
         );
       },
     );
@@ -663,6 +921,63 @@ class NotificationsScreen extends ConsumerWidget {
     }
   }
 
+  String _dayModeLabel(AppSettings settings) {
+    switch (settings.notificationDayMode) {
+      case NotificationDayMode.everyDay:
+        return 'Every day';
+      case NotificationDayMode.weekdays:
+        return 'Weekdays (Mon-Fri)';
+      case NotificationDayMode.weekends:
+        return 'Weekends (Sat-Sun)';
+      case NotificationDayMode.custom:
+        if (settings.customNotificationWeekdays.isEmpty) {
+          return 'Custom';
+        }
+        final days = settings.customNotificationWeekdays.toList()..sort();
+        return days.map(_weekdayShort).join(', ');
+    }
+  }
+
+  String _weekdayShort(int day) {
+    switch (day) {
+      case DateTime.monday:
+        return 'Mon';
+      case DateTime.tuesday:
+        return 'Tue';
+      case DateTime.wednesday:
+        return 'Wed';
+      case DateTime.thursday:
+        return 'Thu';
+      case DateTime.friday:
+        return 'Fri';
+      case DateTime.saturday:
+        return 'Sat';
+      case DateTime.sunday:
+      default:
+        return 'Sun';
+    }
+  }
+
+  String _weekdayLabel(int day) {
+    switch (day) {
+      case DateTime.monday:
+        return 'Monday';
+      case DateTime.tuesday:
+        return 'Tuesday';
+      case DateTime.wednesday:
+        return 'Wednesday';
+      case DateTime.thursday:
+        return 'Thursday';
+      case DateTime.friday:
+        return 'Friday';
+      case DateTime.saturday:
+        return 'Saturday';
+      case DateTime.sunday:
+      default:
+        return 'Sunday';
+    }
+  }
+
   String _timeLabel(NotificationTime value) {
     switch (value) {
       case NotificationTime.morning:
@@ -673,6 +988,29 @@ class NotificationsScreen extends ConsumerWidget {
         return 'Evening';
       case NotificationTime.custom:
         return 'Custom';
+    }
+  }
+
+  TimeOfDay _resolveGeneralTime(AppSettings settings) {
+    if (settings.notificationTime == NotificationTime.custom) {
+      return TimeOfDay(
+        hour: settings.customNotificationHour,
+        minute: settings.customNotificationMinute,
+      );
+    }
+
+    switch (settings.notificationTime) {
+      case NotificationTime.morning:
+        return const TimeOfDay(hour: 8, minute: 0);
+      case NotificationTime.afternoon:
+        return const TimeOfDay(hour: 13, minute: 0);
+      case NotificationTime.evening:
+        return const TimeOfDay(hour: 19, minute: 0);
+      case NotificationTime.custom:
+        return TimeOfDay(
+          hour: settings.customNotificationHour,
+          minute: settings.customNotificationMinute,
+        );
     }
   }
 

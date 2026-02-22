@@ -15,6 +15,8 @@ enum NotificationType {
 
 enum NotificationTime { morning, afternoon, evening, custom }
 
+enum NotificationDayMode { everyDay, weekdays, weekends, custom }
+
 enum MemoryVerseMode { encouragementRandom, encouragementSequential, curated }
 
 enum MemoryVerseCadence {
@@ -46,9 +48,14 @@ class AppSettings {
   final NotificationFrequency notificationFrequency;
   final Set<NotificationType> enabledNotifications;
   final NotificationTime notificationTime;
+  final NotificationDayMode notificationDayMode;
+  final Set<int> customNotificationWeekdays;
   final int customNotificationHour;
   final int customNotificationMinute;
   final int weeklyReminderWeekday;
+  final List<int> prayerReminderMinutes;
+  final int devotionalReminderHour;
+  final int devotionalReminderMinute;
   final bool soundEnabled;
   final bool vibrationEnabled;
   final bool silentNotifications;
@@ -82,9 +89,20 @@ class AppSettings {
     this.notificationFrequency = NotificationFrequency.off,
     this.enabledNotifications = const {},
     this.notificationTime = NotificationTime.morning,
+    this.notificationDayMode = NotificationDayMode.everyDay,
+    this.customNotificationWeekdays = const {
+      DateTime.monday,
+      DateTime.tuesday,
+      DateTime.wednesday,
+      DateTime.thursday,
+      DateTime.friday,
+    },
     this.customNotificationHour = 8,
     this.customNotificationMinute = 0,
     this.weeklyReminderWeekday = DateTime.monday,
+    this.prayerReminderMinutes = const [360, 720, 1080],
+    this.devotionalReminderHour = 8,
+    this.devotionalReminderMinute = 0,
     this.soundEnabled = true,
     this.vibrationEnabled = true,
     this.silentNotifications = false,
@@ -117,9 +135,14 @@ class AppSettings {
     NotificationFrequency? notificationFrequency,
     Set<NotificationType>? enabledNotifications,
     NotificationTime? notificationTime,
+    NotificationDayMode? notificationDayMode,
+    Set<int>? customNotificationWeekdays,
     int? customNotificationHour,
     int? customNotificationMinute,
     int? weeklyReminderWeekday,
+    List<int>? prayerReminderMinutes,
+    int? devotionalReminderHour,
+    int? devotionalReminderMinute,
     bool? soundEnabled,
     bool? vibrationEnabled,
     bool? silentNotifications,
@@ -152,12 +175,21 @@ class AppSettings {
           notificationFrequency ?? this.notificationFrequency,
       enabledNotifications: enabledNotifications ?? this.enabledNotifications,
       notificationTime: notificationTime ?? this.notificationTime,
+      notificationDayMode: notificationDayMode ?? this.notificationDayMode,
+      customNotificationWeekdays:
+          customNotificationWeekdays ?? this.customNotificationWeekdays,
       customNotificationHour:
           customNotificationHour ?? this.customNotificationHour,
       customNotificationMinute:
           customNotificationMinute ?? this.customNotificationMinute,
       weeklyReminderWeekday:
           weeklyReminderWeekday ?? this.weeklyReminderWeekday,
+      prayerReminderMinutes:
+          prayerReminderMinutes ?? this.prayerReminderMinutes,
+      devotionalReminderHour:
+          devotionalReminderHour ?? this.devotionalReminderHour,
+      devotionalReminderMinute:
+          devotionalReminderMinute ?? this.devotionalReminderMinute,
       soundEnabled: soundEnabled ?? this.soundEnabled,
       vibrationEnabled: vibrationEnabled ?? this.vibrationEnabled,
       silentNotifications: silentNotifications ?? this.silentNotifications,

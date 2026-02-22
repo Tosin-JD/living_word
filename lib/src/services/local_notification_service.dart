@@ -36,6 +36,8 @@ class LocalNotificationService {
 
   static const int _readingReminderIdStart = 5000;
   static const int _readingReminderIdEnd = 5060;
+  static const int _generalReminderIdStart = 1000;
+  static const int _generalReminderIdEnd = 1999;
   static const int _memoryVerseIdStart = 7000;
   static const int _memoryVerseIdEnd = 7999;
 
@@ -108,7 +110,7 @@ class LocalNotificationService {
 
     if (settings.notificationFrequency == NotificationFrequency.off ||
         settings.enabledNotifications.isEmpty) {
-      await cancelAllScheduled();
+      await _cancelGeneralReminderIds();
       return;
     }
 
@@ -118,38 +120,48 @@ class LocalNotificationService {
             .toList()
           ..sort((a, b) => a.index.compareTo(b.index));
 
-    for (final type in nonReadingTypes) {
-      await _plugin.cancel(_notificationId(type));
-    }
+    await _cancelGeneralReminderIds();
+    if (nonReadingTypes.isEmpty) return;
 
-    final time = _resolveNotificationTime(settings);
+    final now = DateTime.now();
+    final startDay = DateTime(now.year, now.month, now.day);
+    final allowedWeekdays = _allowedWeekdays(settings);
 
-    for (var index = 0; index < nonReadingTypes.length; index++) {
-      final type = nonReadingTypes[index];
+    var id = _generalReminderIdStart;
 
-      final minuteWithOffset = (time.minute + index) % 60;
-      final hourOffset = (time.minute + index) ~/ 60;
-      final hourWithOffset = (time.hour + hourOffset) % 24;
+    for (var dayOffset = 0; dayOffset < 30; dayOffset++) {
+      final day = startDay.add(Duration(days: dayOffset));
+      if (!allowedWeekdays.contains(day.weekday)) {
+        continue;
+      }
 
-      if (settings.notificationFrequency == NotificationFrequency.weekly) {
-        await _scheduleWeeklyNotification(
-          id: _notificationId(type),
-          title: _titleForType(type),
-          body: _bodyForType(type),
-          weekday: settings.weeklyReminderWeekday,
-          hour: hourWithOffset,
-          minute: minuteWithOffset,
-          settings: settings,
-        );
-      } else {
-        await _scheduleDailyNotification(
-          id: _notificationId(type),
-          title: _titleForType(type),
-          body: _bodyForType(type),
-          hour: hourWithOffset,
-          minute: minuteWithOffset,
-          settings: settings,
-        );
+      for (var index = 0; index < nonReadingTypes.length; index++) {
+        final type = nonReadingTypes[index];
+        final slots = _timeSlotsForType(type, settings, indexOffset: index);
+        for (final slot in slots) {
+          if (id > _generalReminderIdEnd) return;
+
+          final scheduledAt = DateTime(
+            day.year,
+            day.month,
+            day.day,
+            slot.hour,
+            slot.minute,
+          );
+          if (!scheduledAt.isAfter(now)) continue;
+
+          await _plugin.zonedSchedule(
+            id,
+            _titleForType(type),
+            _bodyForType(type),
+            tz.TZDateTime.from(scheduledAt, tz.local),
+            _buildDetails(settings),
+            androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+            uiLocalNotificationDateInterpretation:
+                UILocalNotificationDateInterpretation.absoluteTime,
+          );
+          id++;
+        }
       }
     }
   }
@@ -174,6 +186,9 @@ class LocalNotificationService {
     }
 
     final now = DateTime.now();
+    if (!_isDayAllowed(now, settings)) {
+      return;
+    }
     final pauseToday = await _isPausedForToday(now);
     if (pauseToday) {
       return;
@@ -239,6 +254,7 @@ class LocalNotificationService {
     for (final item in items) {
       if (id > _memoryVerseIdEnd) break;
       if (!item.scheduledAt.isAfter(now)) continue;
+      if (!_isDayAllowed(item.scheduledAt, settings)) continue;
 
       await _plugin.zonedSchedule(
         id,
@@ -431,6 +447,12 @@ class LocalNotificationService {
     }
   }
 
+  Future<void> _cancelGeneralReminderIds() async {
+    for (var id = _generalReminderIdStart; id <= _generalReminderIdEnd; id++) {
+      await _plugin.cancel(id);
+    }
+  }
+
   _TodayReading? _resolveTodaysReading(
     ReadingPlan plan,
     Set<String> readChapterKeys,
@@ -487,6 +509,88 @@ class LocalNotificationService {
     final floored = DateTime(value.year, value.month, value.day, value.hour);
     if (value.isAtSameMomentAs(floored)) return value;
     return floored.add(const Duration(hours: 1));
+  }
+
+  bool _isDayAllowed(DateTime date, AppSettings settings) {
+    return _allowedWeekdays(settings).contains(date.weekday);
+  }
+
+  Set<int> _allowedWeekdays(AppSettings settings) {
+    if (settings.notificationFrequency == NotificationFrequency.weekly) {
+      return {settings.weeklyReminderWeekday};
+    }
+
+    switch (settings.notificationDayMode) {
+      case NotificationDayMode.everyDay:
+        return {
+          DateTime.monday,
+          DateTime.tuesday,
+          DateTime.wednesday,
+          DateTime.thursday,
+          DateTime.friday,
+          DateTime.saturday,
+          DateTime.sunday,
+        };
+      case NotificationDayMode.weekdays:
+        return {
+          DateTime.monday,
+          DateTime.tuesday,
+          DateTime.wednesday,
+          DateTime.thursday,
+          DateTime.friday,
+        };
+      case NotificationDayMode.weekends:
+        return {DateTime.saturday, DateTime.sunday};
+      case NotificationDayMode.custom:
+        final custom = settings.customNotificationWeekdays.where(
+          (day) => day >= DateTime.monday && day <= DateTime.sunday,
+        );
+        return custom.isEmpty
+            ? {
+                DateTime.monday,
+                DateTime.tuesday,
+                DateTime.wednesday,
+                DateTime.thursday,
+                DateTime.friday,
+              }
+            : custom.toSet();
+    }
+  }
+
+  List<_ReminderTime> _timeSlotsForType(
+    NotificationType type,
+    AppSettings settings, {
+    required int indexOffset,
+  }) {
+    switch (type) {
+      case NotificationType.prayerReminder:
+        return settings.prayerReminderMinutes
+            .where((value) => value >= 0 && value < 1440)
+            .toSet()
+            .map((value) => _ReminderTime(value ~/ 60, value % 60))
+            .toList()
+          ..sort((a, b) {
+            final aMinute = (a.hour * 60) + a.minute;
+            final bMinute = (b.hour * 60) + b.minute;
+            return aMinute.compareTo(bMinute);
+          });
+      case NotificationType.devotionalReminder:
+        return [
+          _ReminderTime(
+            settings.devotionalReminderHour.clamp(0, 23),
+            settings.devotionalReminderMinute.clamp(0, 59),
+          ),
+        ];
+      case NotificationType.dailyVerse:
+      case NotificationType.specialEvents:
+      case NotificationType.appUpdates:
+      case NotificationType.readingPlanReminder:
+        final base = _resolveNotificationTime(settings);
+        final minuteWithOffset = (base.minute + indexOffset) % 60;
+        final hourOffset = (base.minute + indexOffset) ~/ 60;
+        final hourWithOffset = (base.hour + hourOffset) % 24;
+        return [_ReminderTime(hourWithOffset, minuteWithOffset)];
+    }
   }
 
   Future<void> _scheduleDailyNotification({
@@ -730,6 +834,13 @@ class _StoredReadingContext {
     required this.body,
     required this.settings,
   });
+}
+
+class _ReminderTime {
+  final int hour;
+  final int minute;
+
+  const _ReminderTime(this.hour, this.minute);
 }
 
 class MemoryVerseScheduleItem {
