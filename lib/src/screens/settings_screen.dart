@@ -118,6 +118,7 @@ class SettingsContent extends ConsumerWidget {
         _buildNotificationPermissionActions(context, ref, settings),
         _buildNotificationFrequencySelector(context, ref, settings),
         _buildNotificationTimeSelector(context, ref, settings),
+        _buildReadingPlanAlarmControls(context, ref, settings),
         if (settings.notificationTime == NotificationTime.custom)
           _buildCustomNotificationTimePicker(context, ref, settings),
         if (settings.notificationFrequency == NotificationFrequency.weekly)
@@ -541,6 +542,80 @@ class SettingsContent extends ConsumerWidget {
     );
   }
 
+  Widget _buildReadingPlanAlarmControls(
+    BuildContext context,
+    WidgetRef ref,
+    AppSettings settings,
+  ) {
+    final windowLabel =
+        '${_formatHour(settings.readingPlanReminderStartHour)} - ${_formatHour(settings.readingPlanReminderEndHour)}';
+
+    return Column(
+      children: [
+        SwitchListTile(
+          secondary: const Icon(Icons.alarm),
+          title: const Text('Reading plan hourly reminders'),
+          subtitle: const Text(
+            'Keeps reminding every hour until today\'s reading is completed.',
+          ),
+          value: settings.readingPlanAlarmEnabled,
+          onChanged: (value) {
+            ref.read(appSettingsProvider.notifier).state = settings.copyWith(
+              readingPlanAlarmEnabled: value,
+            );
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.timelapse),
+          title: const Text('Reminder window'),
+          subtitle: Text(windowLabel),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () async {
+            final start = await showTimePicker(
+              context: context,
+              initialTime: TimeOfDay(
+                hour: settings.readingPlanReminderStartHour,
+                minute: 0,
+              ),
+            );
+            if (start == null) return;
+            if (!context.mounted) return;
+
+            final end = await showTimePicker(
+              context: context,
+              initialTime: TimeOfDay(
+                hour: settings.readingPlanReminderEndHour,
+                minute: 0,
+              ),
+            );
+            if (end == null) return;
+            if (!context.mounted) return;
+
+            var startHour = start.hour;
+            var endHour = end.hour;
+            if (endHour <= startHour) {
+              endHour = (startHour + 1).clamp(1, 23);
+            }
+
+            ref.read(appSettingsProvider.notifier).state = settings.copyWith(
+              readingPlanReminderStartHour: startHour,
+              readingPlanReminderEndHour: endHour,
+            );
+          },
+        ),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Notification actions: Pause 2h, 3h, 4h, 6h, or pause for today.',
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildNotificationPermissionActions(
     BuildContext context,
     WidgetRef ref,
@@ -746,6 +821,13 @@ class SettingsContent extends ConsumerWidget {
 
   String _formatTime(BuildContext context, TimeOfDay time) {
     return MaterialLocalizations.of(context).formatTimeOfDay(time);
+  }
+
+  String _formatHour(int hour) {
+    final value = hour.clamp(0, 23);
+    final suffix = value >= 12 ? 'PM' : 'AM';
+    final normalized = value % 12 == 0 ? 12 : value % 12;
+    return '$normalized:00 $suffix';
   }
 }
 

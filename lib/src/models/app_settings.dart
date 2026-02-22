@@ -42,6 +42,9 @@ class AppSettings {
   final bool soundEnabled;
   final bool vibrationEnabled;
   final bool silentNotifications;
+  final bool readingPlanAlarmEnabled;
+  final int readingPlanReminderStartHour;
+  final int readingPlanReminderEndHour;
 
   const AppSettings({
     this.themeMode = AppThemeMode.system,
@@ -65,6 +68,9 @@ class AppSettings {
     this.soundEnabled = true,
     this.vibrationEnabled = true,
     this.silentNotifications = false,
+    this.readingPlanAlarmEnabled = true,
+    this.readingPlanReminderStartHour = 8,
+    this.readingPlanReminderEndHour = 22,
   });
 
   AppSettings copyWith({
@@ -89,6 +95,9 @@ class AppSettings {
     bool? soundEnabled,
     bool? vibrationEnabled,
     bool? silentNotifications,
+    bool? readingPlanAlarmEnabled,
+    int? readingPlanReminderStartHour,
+    int? readingPlanReminderEndHour,
   }) {
     return AppSettings(
       themeMode: themeMode ?? this.themeMode,
@@ -116,6 +125,12 @@ class AppSettings {
       soundEnabled: soundEnabled ?? this.soundEnabled,
       vibrationEnabled: vibrationEnabled ?? this.vibrationEnabled,
       silentNotifications: silentNotifications ?? this.silentNotifications,
+      readingPlanAlarmEnabled:
+          readingPlanAlarmEnabled ?? this.readingPlanAlarmEnabled,
+      readingPlanReminderStartHour:
+          readingPlanReminderStartHour ?? this.readingPlanReminderStartHour,
+      readingPlanReminderEndHour:
+          readingPlanReminderEndHour ?? this.readingPlanReminderEndHour,
     );
   }
 }

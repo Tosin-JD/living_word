@@ -2,10 +2,31 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import '../models/app_settings.dart';
+import '../repositories/settings_repository.dart';
 
 // Settings state provider
 final appSettingsProvider = StateProvider<AppSettings>((ref) {
   return const AppSettings();
+});
+
+final settingsRepositoryProvider = Provider<SettingsRepository>((ref) {
+  return SettingsRepository();
+});
+
+final settingsBootstrapProvider = Provider<void>((ref) {
+  final repository = ref.watch(settingsRepositoryProvider);
+  var loaded = false;
+
+  Future.microtask(() async {
+    final loadedSettings = await repository.load();
+    ref.read(appSettingsProvider.notifier).state = loadedSettings;
+    loaded = true;
+  });
+
+  ref.listen<AppSettings>(appSettingsProvider, (_, next) {
+    if (!loaded) return;
+    repository.save(next);
+  });
 });
 
 // Theme mode provider derived from settings

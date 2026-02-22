@@ -14,7 +14,9 @@ class LivingWordApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(settingsBootstrapProvider);
     ref.watch(notificationBootstrapProvider);
+    ref.watch(readingPlanNotificationSyncProvider);
     final themeMode = ref.watch(themeModeProvider);
 
     return MaterialApp(
