@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/app_settings.dart';
+import '../providers/notification_providers.dart';
 import '../providers/settings_providers.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -114,8 +115,13 @@ class SettingsContent extends ConsumerWidget {
         const Divider(height: 32),
 
         _buildSectionHeader('Notifications', Icons.notifications),
+        _buildNotificationPermissionActions(context, ref, settings),
         _buildNotificationFrequencySelector(context, ref, settings),
         _buildNotificationTimeSelector(context, ref, settings),
+        if (settings.notificationTime == NotificationTime.custom)
+          _buildCustomNotificationTimePicker(context, ref, settings),
+        if (settings.notificationFrequency == NotificationFrequency.weekly)
+          _buildWeeklyReminderDaySelector(context, ref, settings),
 
         const SizedBox(height: 16),
         Padding(
@@ -142,6 +148,24 @@ class SettingsContent extends ConsumerWidget {
         _buildNotificationTypeToggle(
           title: 'Devotional reminder',
           type: NotificationType.devotionalReminder,
+          settings: settings,
+          ref: ref,
+        ),
+        _buildNotificationTypeToggle(
+          title: 'Reading plan reminder',
+          type: NotificationType.readingPlanReminder,
+          settings: settings,
+          ref: ref,
+        ),
+        _buildNotificationTypeToggle(
+          title: 'Special events',
+          type: NotificationType.specialEvents,
+          settings: settings,
+          ref: ref,
+        ),
+        _buildNotificationTypeToggle(
+          title: 'App updates',
+          type: NotificationType.appUpdates,
           settings: settings,
           ref: ref,
         ),
@@ -431,8 +455,15 @@ class SettingsContent extends ConsumerWidget {
                   groupValue: settings.notificationFrequency,
                   onChanged: (value) {
                     if (value != null) {
+                      final updatedTypes = value == NotificationFrequency.off
+                          ? <NotificationType>{}
+                          : settings.enabledNotifications;
+
                       ref.read(appSettingsProvider.notifier).state = settings
-                          .copyWith(notificationFrequency: value);
+                          .copyWith(
+                            notificationFrequency: value,
+                            enabledNotifications: updatedTypes,
+                          );
                       Navigator.pop(context);
                     }
                   },
@@ -510,6 +541,151 @@ class SettingsContent extends ConsumerWidget {
     );
   }
 
+  Widget _buildNotificationPermissionActions(
+    BuildContext context,
+    WidgetRef ref,
+    AppSettings settings,
+  ) {
+    return Column(
+      children: [
+        ListTile(
+          leading: const Icon(Icons.notifications_active),
+          title: const Text('Enable notifications'),
+          subtitle: Text(
+            settings.notificationFrequency == NotificationFrequency.off
+                ? 'Currently off'
+                : 'Currently ${_getFrequencyLabel(settings.notificationFrequency).toLowerCase()}',
+          ),
+          trailing: Switch(
+            value: settings.notificationFrequency != NotificationFrequency.off,
+            onChanged: (value) {
+              final nextFrequency = value
+                  ? NotificationFrequency.daily
+                  : NotificationFrequency.off;
+
+              final nextTypes = value
+                  ? settings.enabledNotifications.isEmpty
+                        ? {NotificationType.dailyVerse}
+                        : settings.enabledNotifications
+                  : <NotificationType>{};
+
+              ref.read(appSettingsProvider.notifier).state = settings.copyWith(
+                notificationFrequency: nextFrequency,
+                enabledNotifications: nextTypes,
+              );
+            },
+          ),
+        ),
+        ListTile(
+          leading: const Icon(Icons.shield_outlined),
+          title: const Text('Request permission'),
+          subtitle: const Text('Allow this device to display reminders'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () async {
+            await ref
+                .read(localNotificationServiceProvider)
+                .requestPermissions();
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Notification permission requested'),
+              ),
+            );
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.notification_add_outlined),
+          title: const Text('Send test notification'),
+          subtitle: const Text('Send one notification immediately'),
+          trailing: const Icon(Icons.send),
+          onTap: () async {
+            await ref
+                .read(localNotificationServiceProvider)
+                .showTestNotification(settings);
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Test notification sent')),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCustomNotificationTimePicker(
+    BuildContext context,
+    WidgetRef ref,
+    AppSettings settings,
+  ) {
+    final display = _formatTime(
+      context,
+      TimeOfDay(
+        hour: settings.customNotificationHour,
+        minute: settings.customNotificationMinute,
+      ),
+    );
+
+    return ListTile(
+      leading: const Icon(Icons.timer_outlined),
+      title: const Text('Custom time'),
+      subtitle: Text(display),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () async {
+        final selected = await showTimePicker(
+          context: context,
+          initialTime: TimeOfDay(
+            hour: settings.customNotificationHour,
+            minute: settings.customNotificationMinute,
+          ),
+        );
+        if (selected == null) return;
+
+        ref.read(appSettingsProvider.notifier).state = settings.copyWith(
+          customNotificationHour: selected.hour,
+          customNotificationMinute: selected.minute,
+        );
+      },
+    );
+  }
+
+  Widget _buildWeeklyReminderDaySelector(
+    BuildContext context,
+    WidgetRef ref,
+    AppSettings settings,
+  ) {
+    return ListTile(
+      leading: const Icon(Icons.calendar_today_outlined),
+      title: const Text('Weekly reminder day'),
+      subtitle: Text(_weekdayLabel(settings.weeklyReminderWeekday)),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () {
+        showDialog<void>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Select Day'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: List.generate(7, (index) {
+                final day = DateTime.monday + index;
+                return RadioListTile<int>(
+                  title: Text(_weekdayLabel(day)),
+                  value: day,
+                  groupValue: settings.weeklyReminderWeekday,
+                  onChanged: (value) {
+                    if (value == null) return;
+                    ref.read(appSettingsProvider.notifier).state = settings
+                        .copyWith(weeklyReminderWeekday: value);
+                    Navigator.pop(context);
+                  },
+                );
+              }),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   String _getThemeLabel(AppThemeMode mode) {
     switch (mode) {
       case AppThemeMode.light:
@@ -545,6 +721,31 @@ class SettingsContent extends ConsumerWidget {
       case NotificationTime.custom:
         return 'Custom time';
     }
+  }
+
+  String _weekdayLabel(int weekday) {
+    switch (weekday) {
+      case DateTime.monday:
+        return 'Monday';
+      case DateTime.tuesday:
+        return 'Tuesday';
+      case DateTime.wednesday:
+        return 'Wednesday';
+      case DateTime.thursday:
+        return 'Thursday';
+      case DateTime.friday:
+        return 'Friday';
+      case DateTime.saturday:
+        return 'Saturday';
+      case DateTime.sunday:
+        return 'Sunday';
+      default:
+        return 'Monday';
+    }
+  }
+
+  String _formatTime(BuildContext context, TimeOfDay time) {
+    return MaterialLocalizations.of(context).formatTimeOfDay(time);
   }
 }
 

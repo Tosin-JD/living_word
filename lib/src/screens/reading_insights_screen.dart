@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/bible_books.dart';
 import '../providers/reading_plan_providers.dart';
-import '../services/reading_plan_service.dart';
 
 class ReadingInsightsScreen extends ConsumerWidget {
   const ReadingInsightsScreen({super.key});

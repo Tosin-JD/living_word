@@ -36,7 +36,9 @@ class AppSettings {
   final NotificationFrequency notificationFrequency;
   final Set<NotificationType> enabledNotifications;
   final NotificationTime notificationTime;
-  final NotificationTime? customTime;
+  final int customNotificationHour;
+  final int customNotificationMinute;
+  final int weeklyReminderWeekday;
   final bool soundEnabled;
   final bool vibrationEnabled;
   final bool silentNotifications;
@@ -57,7 +59,9 @@ class AppSettings {
     this.notificationFrequency = NotificationFrequency.off,
     this.enabledNotifications = const {},
     this.notificationTime = NotificationTime.morning,
-    this.customTime,
+    this.customNotificationHour = 8,
+    this.customNotificationMinute = 0,
+    this.weeklyReminderWeekday = DateTime.monday,
     this.soundEnabled = true,
     this.vibrationEnabled = true,
     this.silentNotifications = false,
@@ -79,7 +83,9 @@ class AppSettings {
     NotificationFrequency? notificationFrequency,
     Set<NotificationType>? enabledNotifications,
     NotificationTime? notificationTime,
-    NotificationTime? customTime,
+    int? customNotificationHour,
+    int? customNotificationMinute,
+    int? weeklyReminderWeekday,
     bool? soundEnabled,
     bool? vibrationEnabled,
     bool? silentNotifications,
@@ -101,7 +107,12 @@ class AppSettings {
           notificationFrequency ?? this.notificationFrequency,
       enabledNotifications: enabledNotifications ?? this.enabledNotifications,
       notificationTime: notificationTime ?? this.notificationTime,
-      customTime: customTime ?? this.customTime,
+      customNotificationHour:
+          customNotificationHour ?? this.customNotificationHour,
+      customNotificationMinute:
+          customNotificationMinute ?? this.customNotificationMinute,
+      weeklyReminderWeekday:
+          weeklyReminderWeekday ?? this.weeklyReminderWeekday,
       soundEnabled: soundEnabled ?? this.soundEnabled,
       vibrationEnabled: vibrationEnabled ?? this.vibrationEnabled,
       silentNotifications: silentNotifications ?? this.silentNotifications,
