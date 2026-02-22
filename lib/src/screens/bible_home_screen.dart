@@ -537,8 +537,9 @@ class _BibleHomeScreenState extends ConsumerState<BibleHomeScreen> {
               future: NavigationUtils.hasSystemNavBar(),
               builder: (context, snapshot) {
                 final hasNavBar = snapshot.data ?? false;
-                final bottomPadding = hasNavBar ? 16.0 : 8.0;
-                final floatingBar = Positioned(
+                final navInset = MediaQuery.of(context).padding.bottom;
+                final bottomPadding = hasNavBar ? (navInset + 8.0) : 8.0;
+                return Positioned(
                   left: 24,
                   right: 24,
                   bottom: bottomPadding,
@@ -549,27 +550,33 @@ class _BibleHomeScreenState extends ConsumerState<BibleHomeScreen> {
                         _openTranslationSelector(context),
                   ),
                 );
-
-                return hasNavBar
-                    ? SafeArea(top: false, child: floatingBar)
-                    : floatingBar;
               },
             ),
           if (_showModeToggleButton)
-            Positioned(
-              top: 8,
-              right: 8,
-              child: SafeArea(
-                child: FloatingActionButton.small(
-                  heroTag: 'mode_toggle',
-                  onPressed: () => _toggleReadingMode(settings),
-                  child: Icon(
-                    settings.readingMode
-                        ? Icons.menu_book_outlined
-                        : Icons.chrome_reader_mode,
+            FutureBuilder<bool>(
+              future: NavigationUtils.hasSystemNavBar(),
+              builder: (context, snapshot) {
+                final hasNavBar = snapshot.data ?? false;
+                final navInset = MediaQuery.of(context).padding.bottom;
+                final tabsHeight = settings.readingMode ? 0.0 : 68.0;
+                final bottom = (hasNavBar ? navInset : 0.0) + tabsHeight + 10.0;
+
+                return Positioned(
+                  right: 16,
+                  bottom: bottom,
+                  child: FloatingActionButton.small(
+                    heroTag: 'mode_toggle',
+                    onPressed: () => _toggleReadingMode(settings),
+                    backgroundColor: Colors.grey.shade700,
+                    foregroundColor: Colors.white,
+                    child: Icon(
+                      settings.readingMode
+                          ? Icons.menu_book_outlined
+                          : Icons.chrome_reader_mode,
+                    ),
                   ),
-                ),
-              ),
+                );
+              },
             ),
         ],
       ),
