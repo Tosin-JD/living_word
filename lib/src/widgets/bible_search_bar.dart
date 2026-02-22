@@ -244,50 +244,57 @@ class _SearchResultsSheet extends ConsumerWidget {
     final searchResults = ref.watch(searchResultsProvider);
 
     return Container(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: SafeArea(
+        top: false,
+        bottom: true,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(
-                child: Text(
-                  'Search Results for "$searchQuery"',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Search Results for "$searchQuery"',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
-                ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
               ),
-              IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: () => Navigator.pop(context),
+              const SizedBox(height: 12),
+              Expanded(
+                child: searchResults.when(
+                  data: (results) {
+                    if (results.isEmpty) {
+                      return const Center(child: Text('No results found'));
+                    }
+
+                    return ListView.builder(
+                      controller: scrollController,
+                      itemCount: results.length,
+                      itemBuilder: (context, index) {
+                        final result = results[index];
+                        return _SearchResultTile(result: result);
+                      },
+                    );
+                  },
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
+                  error: (error, _) => Center(child: Text('Error: $error')),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: searchResults.when(
-              data: (results) {
-                if (results.isEmpty) {
-                  return const Center(child: Text('No results found'));
-                }
-
-                return ListView.builder(
-                  controller: scrollController,
-                  itemCount: results.length,
-                  itemBuilder: (context, index) {
-                    final result = results[index];
-                    return _SearchResultTile(result: result);
-                  },
-                );
-              },
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, _) => Center(child: Text('Error: $error')),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

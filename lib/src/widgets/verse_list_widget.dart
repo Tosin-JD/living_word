@@ -17,6 +17,7 @@ class VerseListWidget extends ConsumerStatefulWidget {
   final double autoScrollSpeed;
   final double initialScrollOffset;
   final ValueChanged<double>? onScrollOffsetChanged;
+  final VoidCallback? onReachedChapterBottom;
   final int? targetVerseNumber;
   final VoidCallback? onTargetVerseHandled;
 
@@ -31,6 +32,7 @@ class VerseListWidget extends ConsumerStatefulWidget {
     this.autoScrollSpeed = 12.0,
     this.initialScrollOffset = 0.0,
     this.onScrollOffsetChanged,
+    this.onReachedChapterBottom,
     this.targetVerseNumber,
     this.onTargetVerseHandled,
   });
@@ -47,6 +49,7 @@ class _VerseListWidgetState extends ConsumerState<VerseListWidget> {
   Timer? _scrollUpdateDebounce;
   final Map<int, GlobalKey> _verseItemKeys = <int, GlobalKey>{};
   final Set<int> _selectedVerseNumbers = <int>{};
+  bool _wasAtChapterBottom = false;
 
   bool get _isSelectionMode => _selectedVerseNumbers.isNotEmpty;
 
@@ -136,6 +139,7 @@ class _VerseListWidgetState extends ConsumerState<VerseListWidget> {
     final chapterChanged = oldBook != newBook || oldChapter != newChapter;
     if (chapterChanged) {
       _selectedVerseNumbers.clear();
+      _wasAtChapterBottom = false;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || !_scrollController.hasClients) return;
         final target = widget.initialScrollOffset.clamp(
@@ -164,6 +168,19 @@ class _VerseListWidgetState extends ConsumerState<VerseListWidget> {
   }
 
   void _handleScrollOffsetChange() {
+    if (!_scrollController.hasClients) return;
+
+    final position = _scrollController.position;
+    final maxExtent = position.maxScrollExtent;
+    final isAtBottom = maxExtent > 0 && position.pixels >= (maxExtent - 18);
+
+    if (isAtBottom && !_wasAtChapterBottom) {
+      _wasAtChapterBottom = true;
+      widget.onReachedChapterBottom?.call();
+    } else if (!isAtBottom) {
+      _wasAtChapterBottom = false;
+    }
+
     if (widget.onScrollOffsetChanged == null) return;
     _scrollUpdateDebounce?.cancel();
     _scrollUpdateDebounce = Timer(const Duration(milliseconds: 250), () {
@@ -333,12 +350,19 @@ class _VerseListWidgetState extends ConsumerState<VerseListWidget> {
   Widget build(BuildContext context) {
     final resolvedFontFamily = _resolveFontFamily();
     final resolvedFontFallback = _resolveFontFallback();
+    final safeBottomInset = MediaQuery.of(context).padding.bottom;
+    const chapterOverlayClearance = 110.0;
+    const selectionToolbarExtraClearance = 176.0;
+    final bottomPadding =
+        chapterOverlayClearance +
+        safeBottomInset +
+        (_isSelectionMode ? selectionToolbarExtraClearance : 0);
 
     return Stack(
       children: [
         ListView.builder(
           controller: _scrollController,
-          padding: EdgeInsets.fromLTRB(10, 12, 10, _isSelectionMode ? 188 : 12),
+          padding: EdgeInsets.fromLTRB(10, 12, 10, bottomPadding),
           itemCount: widget.verses.length,
           itemBuilder: (context, index) {
             final verse = widget.verses[index];

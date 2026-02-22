@@ -14,224 +14,115 @@ class NotificationsScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Notifications')),
-      body: ListView(
-        children: [
-          _buildSectionHeader('General', Icons.notifications_active),
-          _buildEnableTile(ref, settings),
-          _buildFrequencyTile(context, ref, settings),
-          _buildTimeTile(context, ref, settings),
-          if (settings.notificationTime == NotificationTime.custom)
-            _buildCustomTimeTile(context, ref, settings),
-          _buildActionTile(
-            icon: Icons.shield_outlined,
-            title: 'Request permission',
-            subtitle: 'Allow this device to show reminders',
-            onTap: () async {
-              await ref
-                  .read(localNotificationServiceProvider)
-                  .requestPermissions();
-              if (!context.mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Permission request sent')),
-              );
-            },
-          ),
-          _buildActionTile(
-            icon: Icons.notification_add,
-            title: 'Send test notification',
-            subtitle: 'Verify notifications are working',
-            onTap: () async {
-              await ref
-                  .read(localNotificationServiceProvider)
-                  .showTestNotification(settings);
-              if (!context.mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Test notification sent')),
-              );
-            },
-          ),
-
-          const Divider(height: 32),
-          _buildSectionHeader('Reminder Types', Icons.tune),
-          _buildTypeToggle(
-            ref,
-            settings,
-            NotificationType.dailyVerse,
-            'Daily verse',
-          ),
-          _buildTypeToggle(
-            ref,
-            settings,
-            NotificationType.prayerReminder,
-            'Prayer reminder',
-          ),
-          _buildTypeToggle(
-            ref,
-            settings,
-            NotificationType.devotionalReminder,
-            'Devotional reminder',
-          ),
-
-          const Divider(height: 32),
-          _buildSectionHeader('Reading Plan Alarm', Icons.alarm),
-          SwitchListTile(
-            secondary: const Icon(Icons.menu_book),
-            title: const Text('Reading plan notifications'),
-            subtitle: const Text('Enable reading plan reminders'),
-            value: settings.enabledNotifications.contains(
-              NotificationType.readingPlanReminder,
-            ),
-            onChanged: (value) {
-              final next = Set<NotificationType>.from(
-                settings.enabledNotifications,
-              );
-              if (value) {
-                next.add(NotificationType.readingPlanReminder);
-              } else {
-                next.remove(NotificationType.readingPlanReminder);
-              }
-
-              ref.read(appSettingsProvider.notifier).state = settings.copyWith(
-                enabledNotifications: next,
-              );
-            },
-          ),
-          SwitchListTile(
-            secondary: const Icon(Icons.alarm),
-            title: const Text('Hourly reminder until done'),
-            subtitle: const Text(
-              'Keeps reminding each hour until today\'s reading is complete.',
-            ),
-            value: settings.readingPlanAlarmEnabled,
-            onChanged: (value) {
-              ref.read(appSettingsProvider.notifier).state = settings.copyWith(
-                readingPlanAlarmEnabled: value,
-              );
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.timelapse),
-            title: const Text('Reminder window'),
-            subtitle: Text(
-              '${_formatHour(settings.readingPlanReminderStartHour)} - ${_formatHour(settings.readingPlanReminderEndHour)}',
-            ),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () async {
-              final start = await showTimePicker(
-                context: context,
-                initialTime: TimeOfDay(
-                  hour: settings.readingPlanReminderStartHour,
-                  minute: 0,
-                ),
-              );
-              if (start == null || !context.mounted) return;
-
-              final end = await showTimePicker(
-                context: context,
-                initialTime: TimeOfDay(
-                  hour: settings.readingPlanReminderEndHour,
-                  minute: 0,
-                ),
-              );
-              if (end == null) return;
-
-              var startHour = start.hour;
-              var endHour = end.hour;
-              if (endHour <= startHour) {
-                endHour = (startHour + 1).clamp(1, 23);
-              }
-
-              ref.read(appSettingsProvider.notifier).state = settings.copyWith(
-                readingPlanReminderStartHour: startHour,
-                readingPlanReminderEndHour: endHour,
-              );
-            },
-          ),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16),
-            child: Text(
-              'Notification buttons: Pause 2h, 3h, 4h, 6h, or pause for today.',
-            ),
-          ),
-
-          const Divider(height: 32),
-          _buildSectionHeader('Memory Verses', Icons.auto_stories),
-          SwitchListTile(
-            secondary: const Icon(Icons.auto_stories),
-            title: const Text('Memory verse notifications'),
-            subtitle: const Text('Receive encouraging verses during the day.'),
-            value: settings.memoryVerseEnabled,
-            onChanged: (value) {
-              ref.read(appSettingsProvider.notifier).state = settings.copyWith(
-                memoryVerseEnabled: value,
-              );
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.repeat),
-            title: const Text('How often'),
-            subtitle: Text(_memoryCadenceLabel(settings.memoryVerseCadence)),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => _showMemoryCadenceDialog(context, ref, settings),
-          ),
-          if (settings.memoryVerseCadence ==
-              MemoryVerseCadence.defaultFourTimes)
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Default times: 9:00 AM, 12:00 PM, 3:00 PM, 6:00 PM',
-                ),
-              ),
-            ),
-          if (settings.memoryVerseCadence == MemoryVerseCadence.onceDaily)
-            ListTile(
-              leading: const Icon(Icons.access_time),
-              title: const Text('Time'),
-              subtitle: Text(
-                MaterialLocalizations.of(context).formatTimeOfDay(
-                  TimeOfDay(
-                    hour: settings.memoryVerseWindowStartHour,
-                    minute: settings.memoryVerseWindowStartMinute,
-                  ),
-                ),
-              ),
-              trailing: const Icon(Icons.chevron_right),
+      body: SafeArea(
+        top: false,
+        bottom: true,
+        child: ListView(
+          children: [
+            _buildSectionHeader('General', Icons.notifications_active),
+            _buildEnableTile(ref, settings),
+            _buildFrequencyTile(context, ref, settings),
+            _buildTimeTile(context, ref, settings),
+            if (settings.notificationTime == NotificationTime.custom)
+              _buildCustomTimeTile(context, ref, settings),
+            _buildActionTile(
+              icon: Icons.shield_outlined,
+              title: 'Request permission',
+              subtitle: 'Allow this device to show reminders',
               onTap: () async {
-                final time = await showTimePicker(
-                  context: context,
-                  initialTime: TimeOfDay(
-                    hour: settings.memoryVerseWindowStartHour,
-                    minute: settings.memoryVerseWindowStartMinute,
-                  ),
+                await ref
+                    .read(localNotificationServiceProvider)
+                    .requestPermissions();
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Permission request sent')),
                 );
-                if (time == null) return;
-
-                ref.read(appSettingsProvider.notifier).state = settings
-                    .copyWith(
-                      memoryVerseWindowStartHour: time.hour,
-                      memoryVerseWindowStartMinute: time.minute,
-                    );
               },
             ),
-          if (settings.memoryVerseCadence !=
-                  MemoryVerseCadence.defaultFourTimes &&
-              settings.memoryVerseCadence != MemoryVerseCadence.onceDaily)
+            _buildActionTile(
+              icon: Icons.notification_add,
+              title: 'Send test notification',
+              subtitle: 'Verify notifications are working',
+              onTap: () async {
+                await ref
+                    .read(localNotificationServiceProvider)
+                    .showTestNotification(settings);
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Test notification sent')),
+                );
+              },
+            ),
+
+            const Divider(height: 32),
+            _buildSectionHeader('Reminder Types', Icons.tune),
+            _buildTypeToggle(
+              ref,
+              settings,
+              NotificationType.dailyVerse,
+              'Daily verse',
+            ),
+            _buildTypeToggle(
+              ref,
+              settings,
+              NotificationType.prayerReminder,
+              'Prayer reminder',
+            ),
+            _buildTypeToggle(
+              ref,
+              settings,
+              NotificationType.devotionalReminder,
+              'Devotional reminder',
+            ),
+
+            const Divider(height: 32),
+            _buildSectionHeader('Reading Plan Alarm', Icons.alarm),
+            SwitchListTile(
+              secondary: const Icon(Icons.menu_book),
+              title: const Text('Reading plan notifications'),
+              subtitle: const Text('Enable reading plan reminders'),
+              value: settings.enabledNotifications.contains(
+                NotificationType.readingPlanReminder,
+              ),
+              onChanged: (value) {
+                final next = Set<NotificationType>.from(
+                  settings.enabledNotifications,
+                );
+                if (value) {
+                  next.add(NotificationType.readingPlanReminder);
+                } else {
+                  next.remove(NotificationType.readingPlanReminder);
+                }
+
+                ref.read(appSettingsProvider.notifier).state = settings
+                    .copyWith(enabledNotifications: next);
+              },
+            ),
+            SwitchListTile(
+              secondary: const Icon(Icons.alarm),
+              title: const Text('Hourly reminder until done'),
+              subtitle: const Text(
+                'Keeps reminding each hour until today\'s reading is complete.',
+              ),
+              value: settings.readingPlanAlarmEnabled,
+              onChanged: (value) {
+                ref.read(appSettingsProvider.notifier).state = settings
+                    .copyWith(readingPlanAlarmEnabled: value);
+              },
+            ),
             ListTile(
               leading: const Icon(Icons.timelapse),
-              title: const Text('Time period'),
+              title: const Text('Reminder window'),
               subtitle: Text(
-                '${_formatTime(settings.memoryVerseWindowStartHour, settings.memoryVerseWindowStartMinute)} - '
-                '${_formatTime(settings.memoryVerseWindowEndHour, settings.memoryVerseWindowEndMinute)}',
+                '${_formatHour(settings.readingPlanReminderStartHour)} - ${_formatHour(settings.readingPlanReminderEndHour)}',
               ),
               trailing: const Icon(Icons.chevron_right),
               onTap: () async {
                 final start = await showTimePicker(
                   context: context,
                   initialTime: TimeOfDay(
-                    hour: settings.memoryVerseWindowStartHour,
-                    minute: settings.memoryVerseWindowStartMinute,
+                    hour: settings.readingPlanReminderStartHour,
+                    minute: 0,
                   ),
                 );
                 if (start == null || !context.mounted) return;
@@ -239,74 +130,184 @@ class NotificationsScreen extends ConsumerWidget {
                 final end = await showTimePicker(
                   context: context,
                   initialTime: TimeOfDay(
-                    hour: settings.memoryVerseWindowEndHour,
-                    minute: settings.memoryVerseWindowEndMinute,
+                    hour: settings.readingPlanReminderEndHour,
+                    minute: 0,
                   ),
                 );
                 if (end == null) return;
 
-                final startTotal = (start.hour * 60) + start.minute;
-                var endTotal = (end.hour * 60) + end.minute;
-                if (endTotal <= startTotal) {
-                  endTotal = (startTotal + 60).clamp(0, (23 * 60) + 59);
+                var startHour = start.hour;
+                var endHour = end.hour;
+                if (endHour <= startHour) {
+                  endHour = (startHour + 1).clamp(1, 23);
                 }
 
                 ref.read(appSettingsProvider.notifier).state = settings
                     .copyWith(
-                      memoryVerseWindowStartHour: start.hour,
-                      memoryVerseWindowStartMinute: start.minute,
-                      memoryVerseWindowEndHour: endTotal ~/ 60,
-                      memoryVerseWindowEndMinute: endTotal % 60,
+                      readingPlanReminderStartHour: startHour,
+                      readingPlanReminderEndHour: endHour,
                     );
               },
             ),
-          ListTile(
-            leading: const Icon(Icons.swap_vert_circle_outlined),
-            title: const Text('Verse source mode'),
-            subtitle: Text(_memoryModeLabel(settings.memoryVerseMode)),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => _showMemoryModeDialog(context, ref, settings),
-          ),
-          if (settings.memoryVerseMode == MemoryVerseMode.curated)
-            _buildCuratedListEditor(context, ref, settings),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                'Notification buttons: Pause 2h, 3h, 4h, 6h, or pause for today.',
+              ),
+            ),
 
-          const Divider(height: 32),
-          _buildSectionHeader('Sound & Vibration', Icons.volume_up),
-          SwitchListTile(
-            secondary: const Icon(Icons.volume_up),
-            title: const Text('Sound'),
-            subtitle: const Text('Play notification sound'),
-            value: settings.soundEnabled,
-            onChanged: (value) {
-              ref.read(appSettingsProvider.notifier).state = settings.copyWith(
-                soundEnabled: value,
-              );
-            },
-          ),
-          SwitchListTile(
-            secondary: const Icon(Icons.vibration),
-            title: const Text('Vibration'),
-            subtitle: const Text('Vibrate on notification'),
-            value: settings.vibrationEnabled,
-            onChanged: (value) {
-              ref.read(appSettingsProvider.notifier).state = settings.copyWith(
-                vibrationEnabled: value,
-              );
-            },
-          ),
-          SwitchListTile(
-            secondary: const Icon(Icons.notifications_off),
-            title: const Text('Silent notifications'),
-            subtitle: const Text('Show without sound or vibration'),
-            value: settings.silentNotifications,
-            onChanged: (value) {
-              ref.read(appSettingsProvider.notifier).state = settings.copyWith(
-                silentNotifications: value,
-              );
-            },
-          ),
-          const SizedBox(height: 32),
-        ],
+            const Divider(height: 32),
+            _buildSectionHeader('Memory Verses', Icons.auto_stories),
+            SwitchListTile(
+              secondary: const Icon(Icons.auto_stories),
+              title: const Text('Memory verse notifications'),
+              subtitle: const Text(
+                'Receive encouraging verses during the day.',
+              ),
+              value: settings.memoryVerseEnabled,
+              onChanged: (value) {
+                ref.read(appSettingsProvider.notifier).state = settings
+                    .copyWith(memoryVerseEnabled: value);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.repeat),
+              title: const Text('How often'),
+              subtitle: Text(_memoryCadenceLabel(settings.memoryVerseCadence)),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => _showMemoryCadenceDialog(context, ref, settings),
+            ),
+            if (settings.memoryVerseCadence ==
+                MemoryVerseCadence.defaultFourTimes)
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Default times: 9:00 AM, 12:00 PM, 3:00 PM, 6:00 PM',
+                  ),
+                ),
+              ),
+            if (settings.memoryVerseCadence == MemoryVerseCadence.onceDaily)
+              ListTile(
+                leading: const Icon(Icons.access_time),
+                title: const Text('Time'),
+                subtitle: Text(
+                  MaterialLocalizations.of(context).formatTimeOfDay(
+                    TimeOfDay(
+                      hour: settings.memoryVerseWindowStartHour,
+                      minute: settings.memoryVerseWindowStartMinute,
+                    ),
+                  ),
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () async {
+                  final time = await showTimePicker(
+                    context: context,
+                    initialTime: TimeOfDay(
+                      hour: settings.memoryVerseWindowStartHour,
+                      minute: settings.memoryVerseWindowStartMinute,
+                    ),
+                  );
+                  if (time == null) return;
+
+                  ref.read(appSettingsProvider.notifier).state = settings
+                      .copyWith(
+                        memoryVerseWindowStartHour: time.hour,
+                        memoryVerseWindowStartMinute: time.minute,
+                      );
+                },
+              ),
+            if (settings.memoryVerseCadence !=
+                    MemoryVerseCadence.defaultFourTimes &&
+                settings.memoryVerseCadence != MemoryVerseCadence.onceDaily)
+              ListTile(
+                leading: const Icon(Icons.timelapse),
+                title: const Text('Time period'),
+                subtitle: Text(
+                  '${_formatTime(settings.memoryVerseWindowStartHour, settings.memoryVerseWindowStartMinute)} - '
+                  '${_formatTime(settings.memoryVerseWindowEndHour, settings.memoryVerseWindowEndMinute)}',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () async {
+                  final start = await showTimePicker(
+                    context: context,
+                    initialTime: TimeOfDay(
+                      hour: settings.memoryVerseWindowStartHour,
+                      minute: settings.memoryVerseWindowStartMinute,
+                    ),
+                  );
+                  if (start == null || !context.mounted) return;
+
+                  final end = await showTimePicker(
+                    context: context,
+                    initialTime: TimeOfDay(
+                      hour: settings.memoryVerseWindowEndHour,
+                      minute: settings.memoryVerseWindowEndMinute,
+                    ),
+                  );
+                  if (end == null) return;
+
+                  final startTotal = (start.hour * 60) + start.minute;
+                  var endTotal = (end.hour * 60) + end.minute;
+                  if (endTotal <= startTotal) {
+                    endTotal = (startTotal + 60).clamp(0, (23 * 60) + 59);
+                  }
+
+                  ref.read(appSettingsProvider.notifier).state = settings
+                      .copyWith(
+                        memoryVerseWindowStartHour: start.hour,
+                        memoryVerseWindowStartMinute: start.minute,
+                        memoryVerseWindowEndHour: endTotal ~/ 60,
+                        memoryVerseWindowEndMinute: endTotal % 60,
+                      );
+                },
+              ),
+            ListTile(
+              leading: const Icon(Icons.swap_vert_circle_outlined),
+              title: const Text('Verse source mode'),
+              subtitle: Text(_memoryModeLabel(settings.memoryVerseMode)),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => _showMemoryModeDialog(context, ref, settings),
+            ),
+            if (settings.memoryVerseMode == MemoryVerseMode.curated)
+              _buildCuratedListEditor(context, ref, settings),
+
+            const Divider(height: 32),
+            _buildSectionHeader('Sound & Vibration', Icons.volume_up),
+            SwitchListTile(
+              secondary: const Icon(Icons.volume_up),
+              title: const Text('Sound'),
+              subtitle: const Text('Play notification sound'),
+              value: settings.soundEnabled,
+              onChanged: (value) {
+                ref.read(appSettingsProvider.notifier).state = settings
+                    .copyWith(soundEnabled: value);
+              },
+            ),
+            SwitchListTile(
+              secondary: const Icon(Icons.vibration),
+              title: const Text('Vibration'),
+              subtitle: const Text('Vibrate on notification'),
+              value: settings.vibrationEnabled,
+              onChanged: (value) {
+                ref.read(appSettingsProvider.notifier).state = settings
+                    .copyWith(vibrationEnabled: value);
+              },
+            ),
+            SwitchListTile(
+              secondary: const Icon(Icons.notifications_off),
+              title: const Text('Silent notifications'),
+              subtitle: const Text('Show without sound or vibration'),
+              value: settings.silentNotifications,
+              onChanged: (value) {
+                ref.read(appSettingsProvider.notifier).state = settings
+                    .copyWith(silentNotifications: value);
+              },
+            ),
+            const SizedBox(height: 32),
+          ],
+        ),
       ),
     );
   }

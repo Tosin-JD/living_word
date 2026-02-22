@@ -50,55 +50,67 @@ class _ReadingPlanScreenState extends ConsumerState<ReadingPlanScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Reading Plan')),
-      body: state.isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                _buildSectionHeader(context, 'Active Plans', Icons.event_note),
-                if (state.activePlans.isEmpty)
-                  const Card(
-                    child: ListTile(
-                      title: Text('No active plans yet'),
-                      subtitle: Text('Start one below.'),
-                    ),
-                  )
-                else
-                  ...state.activePlans.map(
-                    (plan) => _buildActivePlanCard(
-                      context,
-                      plan,
-                      state,
-                      service,
-                      currentReference.book,
-                    ),
+      body: SafeArea(
+        top: false,
+        bottom: true,
+        child: state.isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  _buildSectionHeader(
+                    context,
+                    'Active Plans',
+                    Icons.event_note,
                   ),
+                  if (state.activePlans.isEmpty)
+                    const Card(
+                      child: ListTile(
+                        title: Text('No active plans yet'),
+                        subtitle: Text('Start one below.'),
+                      ),
+                    )
+                  else
+                    ...state.activePlans.map(
+                      (plan) => _buildActivePlanCard(
+                        context,
+                        plan,
+                        state,
+                        service,
+                        currentReference.book,
+                      ),
+                    ),
 
-                const SizedBox(height: 24),
-                _buildSectionHeader(
-                  context,
-                  'System Plans',
-                  Icons.auto_awesome,
-                ),
-                _buildTemplateButtons(context, service),
+                  const SizedBox(height: 24),
+                  _buildSectionHeader(
+                    context,
+                    'System Plans',
+                    Icons.auto_awesome,
+                  ),
+                  _buildTemplateButtons(context, service),
 
-                const SizedBox(height: 24),
-                _buildSectionHeader(context, 'Book Plans', Icons.library_books),
-                _buildBookPlanComposer(context, service),
+                  const SizedBox(height: 24),
+                  _buildSectionHeader(
+                    context,
+                    'Book Plans',
+                    Icons.library_books,
+                  ),
+                  _buildBookPlanComposer(context, service),
 
-                const SizedBox(height: 24),
-                _buildSectionHeader(
-                  context,
-                  'Recommendations',
-                  Icons.recommend,
-                ),
-                _buildRecommendations(service, state),
+                  const SizedBox(height: 24),
+                  _buildSectionHeader(
+                    context,
+                    'Recommendations',
+                    Icons.recommend,
+                  ),
+                  _buildRecommendations(service, state),
 
-                const SizedBox(height: 24),
-                _buildSectionHeader(context, 'Future', Icons.upcoming),
-                _buildFuturePlanBuilder(context, service),
-              ],
-            ),
+                  const SizedBox(height: 24),
+                  _buildSectionHeader(context, 'Future', Icons.upcoming),
+                  _buildFuturePlanBuilder(context, service),
+                ],
+              ),
+      ),
     );
   }
 

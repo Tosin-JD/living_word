@@ -15,9 +15,13 @@ class ReadingInsightsScreen extends ConsumerWidget {
     final service = ref.watch(readingPlanServiceProvider);
 
     if (state.isLoading) {
-      return const Scaffold(
-        appBar: _InsightsAppBar(),
-        body: Center(child: CircularProgressIndicator()),
+      return Scaffold(
+        appBar: const _InsightsAppBar(),
+        body: const SafeArea(
+          top: false,
+          bottom: true,
+          child: Center(child: CircularProgressIndicator()),
+        ),
       );
     }
 
@@ -64,115 +68,124 @@ class ReadingInsightsScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: const _InsightsAppBar(),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _StatStrip(
-            items: [
-              _StatItem(label: 'Chapters Read', value: '$chaptersRead'),
-              _StatItem(label: 'Books Completed', value: '$completedBooks/66'),
-              _StatItem(label: 'Streak', value: '$streak days'),
-              _StatItem(label: 'Active Plans', value: '$activePlans'),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _SectionCard(
-            title: 'Progress Pie',
-            subtitle: 'Old Testament vs New Testament contribution',
-            child: SizedBox(
-              height: 220,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: CustomPaint(
-                      painter: _PieChartPainter(
-                        values: [otRead.toDouble(), ntRead.toDouble()],
-                        colors: const [Color(0xFF4CAF50), Color(0xFF2196F3)],
+      body: SafeArea(
+        top: false,
+        bottom: true,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            _StatStrip(
+              items: [
+                _StatItem(label: 'Chapters Read', value: '$chaptersRead'),
+                _StatItem(
+                  label: 'Books Completed',
+                  value: '$completedBooks/66',
+                ),
+                _StatItem(label: 'Streak', value: '$streak days'),
+                _StatItem(label: 'Active Plans', value: '$activePlans'),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _SectionCard(
+              title: 'Progress Pie',
+              subtitle: 'Old Testament vs New Testament contribution',
+              child: SizedBox(
+                height: 220,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: CustomPaint(
+                        painter: _PieChartPainter(
+                          values: [otRead.toDouble(), ntRead.toDouble()],
+                          colors: const [Color(0xFF4CAF50), Color(0xFF2196F3)],
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  SizedBox(
-                    width: 140,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _LegendRow(
-                          color: const Color(0xFF4CAF50),
-                          label: 'OT',
-                          value: '$otRead',
-                        ),
-                        const SizedBox(height: 8),
-                        _LegendRow(
-                          color: const Color(0xFF2196F3),
-                          label: 'NT',
-                          value: '$ntRead',
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Summary',
-                          style: Theme.of(context).textTheme.titleSmall,
-                        ),
-                        Text('OT: ${(otPercent * 100).toStringAsFixed(1)}%'),
-                        Text('NT: ${(ntPercent * 100).toStringAsFixed(1)}%'),
-                      ],
+                    const SizedBox(width: 16),
+                    SizedBox(
+                      width: 140,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _LegendRow(
+                            color: const Color(0xFF4CAF50),
+                            label: 'OT',
+                            value: '$otRead',
+                          ),
+                          const SizedBox(height: 8),
+                          _LegendRow(
+                            color: const Color(0xFF2196F3),
+                            label: 'NT',
+                            value: '$ntRead',
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Summary',
+                            style: Theme.of(context).textTheme.titleSmall,
+                          ),
+                          Text('OT: ${(otPercent * 100).toStringAsFixed(1)}%'),
+                          Text('NT: ${(ntPercent * 100).toStringAsFixed(1)}%'),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          _SectionCard(
-            title: 'Bar Chart',
-            subtitle: 'Completion by section',
-            child: SizedBox(
-              height: 220,
-              child: CustomPaint(
-                painter: _BarChartPainter(
-                  labels: const ['OT', 'NT', 'Overall'],
-                  values: [otPercent, ntPercent, overallPercent],
-                  colors: const [
-                    Color(0xFF4CAF50),
-                    Color(0xFF2196F3),
-                    Color(0xFFFFA726),
                   ],
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: 16),
-          _SectionCard(
-            title: 'Progress Ring',
-            subtitle: 'Global chapter completion diagram',
-            child: Column(
-              children: [
-                SizedBox(
-                  height: 180,
-                  child: CustomPaint(
-                    painter: _RingChartPainter(progress: overallPercent),
-                    child: Center(
-                      child: Text(
-                        '${(overallPercent * 100).toStringAsFixed(1)}%',
-                        style: Theme.of(context).textTheme.headlineSmall,
+            const SizedBox(height: 16),
+            _SectionCard(
+              title: 'Bar Chart',
+              subtitle: 'Completion by section',
+              child: SizedBox(
+                height: 220,
+                child: CustomPaint(
+                  painter: _BarChartPainter(
+                    labels: const ['OT', 'NT', 'Overall'],
+                    values: [otPercent, ntPercent, overallPercent],
+                    colors: const [
+                      Color(0xFF4CAF50),
+                      Color(0xFF2196F3),
+                      Color(0xFFFFA726),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            _SectionCard(
+              title: 'Progress Ring',
+              subtitle: 'Global chapter completion diagram',
+              child: Column(
+                children: [
+                  SizedBox(
+                    height: 180,
+                    child: CustomPaint(
+                      painter: _RingChartPainter(progress: overallPercent),
+                      child: Center(
+                        child: Text(
+                          '${(overallPercent * 100).toStringAsFixed(1)}%',
+                          style: Theme.of(context).textTheme.headlineSmall,
+                        ),
                       ),
                     ),
                   ),
-                ),
-                Text(
-                  'Summary: $chaptersRead / $totalChapters chapters complete',
-                ),
-              ],
+                  Text(
+                    'Summary: $chaptersRead / $totalChapters chapters complete',
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-          _SectionCard(
-            title: 'Fulfilled Days',
-            subtitle: 'Daily completion trail (last 30 days)',
-            child: _FulfilledDaysGrid(readChapterDates: state.readChapterDates),
-          ),
-        ],
+            const SizedBox(height: 16),
+            _SectionCard(
+              title: 'Fulfilled Days',
+              subtitle: 'Daily completion trail (last 30 days)',
+              child: _FulfilledDaysGrid(
+                readChapterDates: state.readChapterDates,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
